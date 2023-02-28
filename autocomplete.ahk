@@ -16,7 +16,8 @@ If (A_ScriptFullPath = A_LineFile) {
     Global min_suggestion_length := 4
 
     ; Script
-    Global gathered_input := InputHook("C V", "{Esc}{Space}{Home}{End}{PgUp}{PgDn}{Left}{Right}{Up}{Down}{Enter},.")
+    Run hotstring_file
+    Global gathered_input := InputHook("C V", "")
     gathered_input.OnChar := UpdateSuggestions
     gathered_input.NotifyNonText := True
     gathered_input.OnKeyUp := UpdateSuggestions
@@ -33,12 +34,13 @@ If (A_ScriptFullPath = A_LineFile) {
     Hotkey "~LButton", ResetWord
     Hotkey "~MButton", ResetWord
     Hotkey "~RButton", ResetWord
-    Hotkey "~!Tab", ResetWord
 
     HotIfWinExist "Completion Menu"
+    Hotkey "~LButton", CheckClickLocation
     Hotkey "^Space", KeyboardInsertMatch
     Hotkey "Tab", ChangeFocus.Bind("Down")
     Hotkey "+Tab", ChangeFocus.Bind("Up")
+    Hotkey "^k", ResetWord   
     HotIf
 
     global word_list := TrieNode()
@@ -137,12 +139,30 @@ ResetWord(called_by) {
     return
 }
 
-UpdateSuggestions(*) {
+UpdateSuggestions(hook, params*) {
     current_word := StrLower(gathered_input.Input)
-    ; tooltip current_word
+
     if WinActive("Completion Menu") {
         return
     } 
+
+    if params[1] is Integer { ; if keycode rather than char
+        key := GetKeyName(Format("vk{:x}sc{:x}", params[1], params[2]))
+        ; tooltip "Reset, " params[1] ", " params[2] ", " key
+        if not (key = "Backspace" or key = "LShift" or key = "RShift" or key = "Capslock") {
+            ResetWord("End_Key")
+            return
+        }
+    }
+    else if params[1] = " " or params[1] = "`n" or params[1] = Chr(0x1B) { ; Chr(0x1B) = "Esc"
+        ; tooltip "Reset, " params[1]
+        ResetWord("End_Key")
+        return
+    }
+    else {
+        ; tooltip current_word ", " params[1]
+    }
+
     if StrLen(current_word) < min_show_length {
         suggestions.hide()
         return
@@ -192,6 +212,12 @@ FindActivePos() {
     }
 }
 
+CheckClickLocation(*) {
+    MouseGetPos ,, &clicked_window
+    if not WinGetTitle(clicked_window) = "Completion Menu" {
+        ResetWord("Click")
+    }
+}
 
 Class TrieNode
 {
