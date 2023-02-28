@@ -44,7 +44,7 @@ If (A_ScriptFullPath = A_LineFile) {
     global word_list := TrieNode()
     num_words := 0
     Loop read, hotstring_file {
-        tooltip num_words ", " A_LoopReadLine
+        ; tooltip num_words ", " A_LoopReadLine
         ; if num_words > 1000 {
             ; break
         ; }
@@ -61,7 +61,7 @@ If (A_ScriptFullPath = A_LineFile) {
         num_words += 1
     }
 
-    tooltip
+    ; tooltip
 }
 
 make_gui() {
@@ -130,7 +130,7 @@ ResetWord(called_by) {
     if called_by is String { ; if not inputhook calling itself
         gathered_input.Stop()
     }
-    tooltip "Reset due to " gathered_input.EndReason
+    ; tooltip "Reset due to " gathered_input.EndReason
     suggestions.hide()
     matches.Delete()
     gathered_input.Start()
@@ -139,7 +139,7 @@ ResetWord(called_by) {
 
 UpdateSuggestions(*) {
     current_word := StrLower(gathered_input.Input)
-    tooltip current_word
+    ; tooltip current_word
     if WinActive("Completion Menu") {
         return
     } 
