@@ -1,7 +1,7 @@
 ﻿#Requires AutoHotkey v2.0-a
 CoordMode "Caret"
 
-; this branch searches across multiple branches rather than just keeping one word as the prefix. It is fairly resource intensive
+; this branch searches across multiple prefixes rather than just keeping one word as the prefix. It is fairly resource intensive when typing quickly
 
 ; todos
 ; read multi line hotstrings maybe a hover tooltip to see entire output
@@ -49,9 +49,11 @@ If (A_ScriptFullPath = A_LineFile) {
 }
 
 show_searches(*) {
+    out := ""
     for prefix, _ in completion_menu.search_stack {
-        msgbox prefix
+        out .= prefix "`n"
     }
+    msgbox out
 }
 
 FindActivePos() {
@@ -176,10 +178,10 @@ Class SuggestionsGui
 
     ChangeFocus(direction, *) {
         focused := ListViewGetContent("Count Focused", this.matches)
-        if direction = "Up" {
+        if direction = "Up" and this.match_rows {
             this.matches.Modify(Mod(focused - 1, this.match_rows), "+Select +Focus")
         }
-        else if direction = "Down" {
+        else if direction = "Down" and this.match_rows {
             this.matches.Modify(Mod(focused + 1, this.match_rows), "+Select +Focus")
         }
         return
@@ -211,23 +213,25 @@ Class SuggestionsGui
     }
 
     CharUpdateInput(hook, params*) {
-        if params[1] = "`n" or params[1] = Chr(0x1B) { ; Chr(0x1B) = "Esc"
-            tooltip "reset by " params[1]
+        if params[1] = Chr(0x1B) { ; Chr(0x1B) = "Esc", Chr(0x9) = "Tab"
+            ; tooltip "reset by " params[1]
             this.ResetWord("End_Key")
             return
         }
 
-        tooltip "add " params[1]
-        for prefix, node in this.search_stack {
+        ; tooltip "add " params[1]
+        old_search_stack := this.search_stack.Clone()
+        for prefix, node in old_search_stack {
             this.search_stack.Delete(prefix)
             new_prefix := prefix . params[1]
+            ; tooltip "delete " prefix ", add " new_prefix
             if node.Has(params[1]) {
                 this.search_stack[new_prefix] := node[params[1]]
             }
         }
 
-        if params[1] = " " {
-            tooltip "add new word " params[1]
+        if params[1] = " " or params[1] = "`n" or params[1] = Chr(0x9) { ; Chr(0x9) = "Tab"
+            ; tooltip "add new word " params[1]
             this.search_stack[""] := this.word_list.root
         }
 
@@ -237,20 +241,25 @@ Class SuggestionsGui
     AltUpdateInput(hook, params*) {
         key := GetKeyName(Format("vk{:x}sc{:x}", params[1], params[2]))
         if key = "Backspace" {
-
+            old_search_stack := this.search_stack.Clone()
+            for prefix, node in old_search_stack {
+                this.search_stack.Delete(prefix)
+                new_prefix := SubStr(prefix, 1, -1)
+                this.search_stack[new_prefix] := this.word_list.FindNode(new_prefix)
+            }
+            this.UpdateSuggestions()
         }
         else if (key = "LShift" or key = "RShift" or key = "LControl" or key = "RControl" or key = "Capslock") {
-            tooltip "ignored " key
+            ; tooltip "ignored " key
         }
         else {
-            tooltip "reset by " key
+            ; tooltip "reset by " key
             this.ResetWord("End_Key")
         }
     }
 
     UpdateSuggestions() {
         if WinActive("Completion Menu") {
-            msgbox "winactive"
             return
         } 
 
@@ -380,12 +389,7 @@ Class TrieNode
             node := next[2]
             for char, child in node {
                 if char = match_key {
-                    if match_key = "is_hotstring" {
-                        match_list.Push(Array(string, child))
-                    }
-                    else {
-                        match_list.Push(Array(child, string))
-                    }
+                    match_list.Push(Array(child, string))
                 }
                 else if child is Map {
                     stack.Push(Array(string . char, child))
