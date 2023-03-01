@@ -3,7 +3,9 @@ CoordMode "Caret"
 
 ; todos
 ; read multi line hotstrings maybe a hover tooltip to see entire output
-; option for exact matches/storing triggers
+; better hotstring modification and implement adding hotstrings
+; add stack for multi word hotstrings
+; allow loading multiple hotkey files - with individual options
 ; optimize -- store last Trie root and go from there if just a char addition
 
 ^r::Reload ; for development
@@ -17,23 +19,13 @@ If (A_ScriptFullPath = A_LineFile) {
     Global bg_colour := "2B2A33"
     Global text_colour := "C9C5A2"
     Global try_caret := True ; try to show gui under caret - will only work in some apps
+    Global exact_match_word := False
+    Global exact_match_hotstring := True
+    Global max_prefix_length := 5 ; max number of space separated words to retain and search for matches. Allows matching sentence style hotstrings.
 
-    ; Script
-    Run hotstring_file
-    Global gathered_input := InputHook("C V", "")
-    gathered_input.OnChar := UpdateSuggestions
-    gathered_input.NotifyNonText := True
-    gathered_input.OnKeyUp := UpdateSuggestions
-    gathered_input.OnEnd := ResetWord
-    gathered_input.Start()
-
-    make_gui()
-
+    ; Hotkeys
     HotIf
-    ; extend layer
     Hotkey "~SC03A & ~SC027", ResetWord
-
-    ; normal
     Hotkey "~LButton", ResetWord
     Hotkey "~MButton", ResetWord
     Hotkey "~RButton", ResetWord
@@ -44,14 +36,27 @@ If (A_ScriptFullPath = A_LineFile) {
     Hotkey "Tab", ChangeFocus.Bind("Down")
     Hotkey "+Tab", ChangeFocus.Bind("Up")
     Hotkey "^k", ResetWord   
+
     HotIf
 
+    ; Objects
+    Run hotstring_file
+    Global gathered_input := InputHook("C V", "")
+    gathered_input.OnChar := UpdateSuggestions
+    gathered_input.NotifyNonText := True
+    gathered_input.OnKeyUp := UpdateSuggestions
+    gathered_input.OnEnd := ResetWord
+    gathered_input.Start()
+
+    MakeGui()
+
+    ; Load wordlist
     global word_list := TrieNode()
     num_words := 0
     Loop read, hotstring_file {
         first_two := SubStr(A_LoopReadLine, 1, 2)
         if first_two = "::" {
-            AddHotstring(A_LoopReadLine)
+            LoadHotstring(A_LoopReadLine)
         }
         else {
             continue
@@ -60,7 +65,7 @@ If (A_ScriptFullPath = A_LineFile) {
     }
 }
 
-make_gui() {
+MakeGui() {
     Global suggestions := Gui("+AlwaysOnTop +ToolWindow -Caption", "Completion Menu")
     suggestions.MarginX := 0
     suggestions.MarginY := 0
@@ -73,19 +78,19 @@ make_gui() {
     suggestions.Show("Hide") ; makes gui resizable to correct number of rows on first suggestion
 }
 
-AddWord(word) {
+LoadWord(word) {
     if StrLen(word) >= min_suggestion_length {
-        word_list.insert(A_LoopReadLine)
+        word_list.Insert(A_LoopReadLine)
     }
 }
 
-AddHotstring(hstring) {
+LoadHotstring(hstring) {
     split := StrSplit(hstring, "::")
     trigger := split[2]
     word := split[3]
     if StrLen(word) >= min_suggestion_length {
-        word_list.insert(word, trigger)
-        word_list.insert(trigger, word, True)
+        word_list.Insert(word, trigger, "is_word")
+        word_list.Insert(trigger, word, "is_hotstring")
     }
 }
 
@@ -126,8 +131,8 @@ ModifyHotstring(matches, row) {
     trigger := matches.GetText(row, 1)
     word := matches.GetText(row, 2)
     FileAppend "`r`n::" trigger "::" word, hotstring_file
-    word_list.insert(word, trigger)
-    word_list.insert(trigger, word, True)
+    word_list.Insert(word, trigger, "is_word")
+    word_list.Insert(trigger, word, "is_hotstring")
     Run hotstring_file
 }
 
@@ -142,42 +147,75 @@ ResetWord(called_by) {
     return
 }
 
+IsEndKey(params) {
+    if params[1] is Integer { ; if keycode rather than char
+        key := GetKeyName(Format("vk{:x}sc{:x}", params[1], params[2]))
+        if (key = "Backspace" or key = "LShift" or key = "RShift" or key = "LControl" or key = "RControl" or key = "Capslock") {
+            tooltip "ignored " key
+            return True
+        }
+        else {
+            tooltip "reset by " key
+            ResetWord("End_Key")
+            return True
+        }
+    }
+    else if params[1] = "`n" or params[1] = Chr(0x1B) { ; Chr(0x1B) = "Esc"
+        tooltip "reset by " params[1]
+        ResetWord("End_Key")
+        return True
+    }
+    else if params[1] = " " {
+
+    }
+    else {
+        tooltip "added " params[1]
+        return False
+    }
+}
+
 UpdateSuggestions(hook, params*) {
     current_word := StrLower(gathered_input.Input)
 
     if WinActive("Completion Menu") {
         return
     } 
-
-    if params[1] is Integer { ; if keycode rather than char
-        key := GetKeyName(Format("vk{:x}sc{:x}", params[1], params[2]))
-        if (key = "Backspace" or key = "LShift" or key = "RShift" or key = "Capslock") {
-            return
-        }
-        else {
-            ResetWord("End_Key")
-            return
-        }
-    }
-    else if params[1] = " " or params[1] = "`n" or params[1] = Chr(0x1B) { ; Chr(0x1B) = "Esc"
-        ResetWord("End_Key")
+    else if IsEndKey(params) {
         return
     }
-
-    if StrLen(current_word) < min_show_length {
+    else if StrLen(current_word) < min_show_length {
         suggestions.hide()
         return
     }
 
-    match_list := word_list.match(current_word)
-    if not match_list {
-        suggestions.hide()
+    current_node := word_list.FindNode(current_word)
+
+    if not current_node {
         return
     }
 
+    hotstring_matches := FindMatches(current_word, current_node, "is_hotstring", exact_match_hotstring)
+    word_matches := FindMatches(current_word, current_node, "is_word", exact_match_word)
+
+    if not (hotstring_matches or word_matches) {
+        suggestions.hide()
+        return
+    }
+    else {
+        AddMatchControls(hotstring_matches, word_matches)
+        ResizeGui()
+        ShowGui()
+    }
+}
+
+AddMatchControls(hotstring_matches, word_matches) {
     matches.Delete()
     Global rows := 0
-    for match in match_list {
+    for match in hotstring_matches {
+        matches.Add(, match[1], match[2])
+        rows += 1
+    }
+    for match in word_matches {
         matches.Add(, match[1], match[2])
         rows += 1
     }
@@ -185,9 +223,14 @@ UpdateSuggestions(hook, params*) {
     matches.Modify(1, "+Select +Focus")
     matches.ModifyCol()
     matches.ModifyCol(2, "AutoHdr")
+}
 
-    shown_rows := min(max_rows, rows)
+ResizeGui(){
+    Global shown_rows := min(max_rows, rows)
     suggestions.Move(,,,shown_rows * 20) ; will have to change if font size changes
+}
+
+ShowGui(){
     if try_caret and CaretGetPos(&x, &y) {
         suggestions.Show("x" x " y" y + 20 " NoActivate")
     }
@@ -211,6 +254,15 @@ FindActivePos() {
     }
 }
 
+FindMatches(current_word, current_node, match_key, exact_match) {
+    if exact_match {
+        return word_list.MatchWord(current_word, current_node, match_key)
+    }
+    else {
+        return word_list.MatchPrefix(current_word, current_node, match_key)
+    }
+}
+
 CheckClickLocation(*) {
     MouseGetPos ,, &clicked_window
     if not WinGetTitle(clicked_window) = "Completion Menu" {
@@ -224,7 +276,7 @@ Class TrieNode
         this.root := Map()
     }
 
-    insert(word, pair:="", is_abbr:=False) {
+    Insert(word, pair:="", id_key:="is_word") {
         current := this.root
 
         prefix := ""
@@ -237,15 +289,10 @@ Class TrieNode
             current := current[char]
         }
 
-        if is_abbr {
-            current["is_abbr"] := pair
-        }
-        else {
-            current["is_word"] := pair
-        }
+        current[id_key] := pair
     }
 
-    match(prefix) {
+    FindNode(prefix) {
         current := this.root
         Loop Parse, prefix {
             char := A_LoopField
@@ -254,27 +301,31 @@ Class TrieNode
             }
             current := current[char]
         }
-        return this.TraverseFromNode(prefix, current)
+        return current
     }
 
-    TraverseFromNode(prefix, root) {
+    MatchWord(word, root, match_key) {
+        match_list := Array()
+        if root.Has(match_key) {
+            match_list.Push(Array(word, root[match_key]))
+        }
+        return match_list
+    }
+
+    MatchPrefix(prefix, root, match_key) {
         stack := Array(Array(prefix, root))
         match_list := Array()
-        if root.Has("is_abbr") {
-            match_list.Push(Array(prefix, root["is_abbr"])) ; show exact match abbreviations first
-        }
         while stack.Length {
             next := stack.Pop()
             string := next[1]
             node := next[2]
-            if node.Has("is_word") {
-                match_list.Push(Array(node["is_word"], string)) ; is_word stores hotstring abbreviation
-            }
             for char, child in node {
-                if char = "is_word" or char = "is_abbr" {
-                    continue
+                if char = match_key {
+                    match_list.Push(Array(node["is_word"], string)) ; is_word stores hotstring abbreviation
                 }
-                stack.Push(Array(string . char, child))
+                else if child is Map {
+                    stack.Push(Array(string . char, child))
+                }
             }
         }
         return match_list
