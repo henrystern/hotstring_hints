@@ -1,6 +1,8 @@
 ﻿#Requires AutoHotkey v2.0-a
 CoordMode "Caret"
 
+; this branch searches across multiple branches rather than just keeping one word as the prefix. It is fairly resource intensive
+
 ; todos
 ; read multi line hotstrings maybe a hover tooltip to see entire output
 ; better hotstring modification and implement adding hotstrings
@@ -9,6 +11,7 @@ CoordMode "Caret"
 ; optimize -- store last Trie root and go from there if just a char addition
 
 ^r::Reload ; for development
+Ins::show_searches
 
 If (A_ScriptFullPath = A_LineFile) {
     ; Objects
@@ -22,9 +25,9 @@ If (A_ScriptFullPath = A_LineFile) {
     change_focus_down := ObjBindMethod(completion_menu, "ChangeFocus", "Down")
     change_focus_up := ObjBindMethod(completion_menu, "ChangeFocus", "Up")
 
-    gathered_input.OnChar := ObjBindMethod(completion_menu, "UpdateSuggestions")
+    gathered_input.OnChar := ObjBindMethod(completion_menu, "CharUpdateInput")
     gathered_input.NotifyNonText := True
-    gathered_input.OnKeyUp := ObjBindMethod(completion_menu, "UpdateSuggestions")
+    gathered_input.OnKeyUp := ObjBindMethod(completion_menu, "AltUpdateInput")
     gathered_input.OnEnd := reset
     gathered_input.Start()
 
@@ -43,6 +46,12 @@ If (A_ScriptFullPath = A_LineFile) {
     Hotkey "^k", reset
 
     HotIf
+}
+
+show_searches(*) {
+    for prefix, _ in completion_menu.search_stack {
+        msgbox prefix
+    }
 }
 
 FindActivePos() {
@@ -73,7 +82,6 @@ Class SuggestionsGui
         this.try_caret := True ; try to show gui under caret - will only work in some apps
         this.exact_match_word := False
         this.exact_match_hotstring := True
-        this.max_prefix_length := 5 ; max number of space separated words to retain and search for matches. Allows matching sentence style hotstrings.
         this.load_hotstring_words := True
         this.load_hotstring_triggers := True
 
@@ -85,6 +93,8 @@ Class SuggestionsGui
         this.word_list := TrieNode()
         this.LoadHotstringFile(this.hotstring_file)
 
+        ; State
+        this.search_stack := Map("", this.word_list.root)
     }
 
     MakeGui() {
@@ -195,76 +205,73 @@ Class SuggestionsGui
 
         this.suggestions.hide()
         this.matches.Delete()
+        this.search_stack := Map("", this.word_list.root)
         gathered_input.Start()
         return
     }
 
-    IsEndKey(params) {
-        if params[1] is Integer { ; if keycode rather than char
-            key := GetKeyName(Format("vk{:x}sc{:x}", params[1], params[2]))
-            if (key = "Backspace" or key = "LShift" or key = "RShift" or key = "LControl" or key = "RControl" or key = "Capslock") {
-                tooltip "ignored " key
-                return True
-            }
-            else {
-                tooltip "reset by " key
-                this.ResetWord("End_Key")
-                return True
-            }
-        }
-        else if params[1] = "`n" or params[1] = Chr(0x1B) { ; Chr(0x1B) = "Esc"
+    CharUpdateInput(hook, params*) {
+        if params[1] = "`n" or params[1] = Chr(0x1B) { ; Chr(0x1B) = "Esc"
             tooltip "reset by " params[1]
             this.ResetWord("End_Key")
-            return True
+            return
         }
-        else if params[1] = " " {
-            tooltip "reset by " params[1]
-            this.ResetWord("End_Key")
-            return True
+
+        tooltip "add " params[1]
+        for prefix, node in this.search_stack {
+            this.search_stack.Delete(prefix)
+            new_prefix := prefix . params[1]
+            if node.Has(params[1]) {
+                this.search_stack[new_prefix] := node[params[1]]
+            }
+        }
+
+        if params[1] = " " {
+            tooltip "add new word " params[1]
+            this.search_stack[""] := this.word_list.root
+        }
+
+        this.UpdateSuggestions()
+    }
+
+    AltUpdateInput(hook, params*) {
+        key := GetKeyName(Format("vk{:x}sc{:x}", params[1], params[2]))
+        if key = "Backspace" {
+
+        }
+        else if (key = "LShift" or key = "RShift" or key = "LControl" or key = "RControl" or key = "Capslock") {
+            tooltip "ignored " key
         }
         else {
-            tooltip "added " params[1]
-            return False
+            tooltip "reset by " key
+            this.ResetWord("End_Key")
         }
     }
 
-    UpdateSuggestions(hook, params*) {
-        current_word := StrLower(gathered_input.Input)
-
+    UpdateSuggestions() {
         if WinActive("Completion Menu") {
+            msgbox "winactive"
             return
         } 
-        else if this.IsEndKey(params) {
-            return
-        }
-        else if StrLen(current_word) < this.min_show_length {
-            this.suggestions.hide()
-            return
-        }
 
-        this.current_node := this.word_list.FindNode(current_word)
+        hotstring_matches := []
+        word_matches := []
 
-        if not this.current_node {
-            this.suggestions.hide()
-            return
-        }
+        for prefix, node in this.search_stack {
+            if StrLen(prefix) < this.min_show_length {
+                continue
+            }
 
-        if this.load_hotstring_triggers {
-            hotstring_matches := this.FindMatches(current_word, this.current_node, "is_hotstring", this.exact_match_hotstring)
-        }
-        else {
-            hotstring_matches := []
-        }
-        if this.load_hotstring_words {
-            word_matches := this.FindMatches(current_word, this.current_node, "is_word", this.exact_match_word)
-        }
-        else {
-            word_matches := []
+            if this.load_hotstring_triggers {
+                hotstring_matches.Push(this.FindMatches(prefix, node, "is_hotstring", this.exact_match_hotstring)*)
+            }
+            if this.load_hotstring_words {
+                word_matches.Push(this.FindMatches(prefix, node, "is_word", this.exact_match_word)*)
+            }
         }
 
         if not (hotstring_matches or word_matches) {
             this.suggestions.hide()
-            return
         }
         else {
             this.AddMatchControls(hotstring_matches, word_matches)
