@@ -1,4 +1,6 @@
 ; Taken from https://github.com/GavinPen/AHKExpansionsList
+#Requires AutoHotkey v2.0-a
+#SingleInstance Force
 ::aarn::Aaron
 ::abcs::abacus
 ::abcss::abacuses
@@ -20229,7 +20231,6 @@
 ::guardn::Guardian
 ::guardns::guardians
 ::gud::guide
-::gui::GUI
 ::gurdn::Guardian
 ::gutr::gutter
 ::gutrg::guttering
@@ -44967,7 +44968,6 @@
 ::sscbs::subscribes
 ::sscn::subscription
 ::sscns::subscriptions
-::ssd::seaside
 ::ssg::sausage
 ::ssgs::sausages
 ::ssh::sash
@@ -53486,4 +53486,3 @@
 ::zt::zit
 ::zta::zeta
 ::zts::zits
-::aby::abysmal
