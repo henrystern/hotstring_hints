@@ -192,10 +192,10 @@ Class SuggestionsGui
     ChangeFocus(direction, *) {
         focused := ListViewGetContent("Count Focused", this.matches)
         if direction = "Up" {
-            this.matches.Modify(Mod(focused - 1, this.match_rows), "+Select +Focus")
+            this.matches.Modify(Mod(focused - 1, this.matches.GetCount()), "+Select +Focus")
         }
         else if direction = "Down" {
-            this.matches.Modify(Mod(focused + 1, this.match_rows), "+Select +Focus")
+            this.matches.Modify(Mod(focused + 1, this.matches.GetCount()), "+Select +Focus")
         }
         return
     }
@@ -219,7 +219,6 @@ Class SuggestionsGui
         }
         this.suggestions.Hide()
         this.matches.Delete()
-        this.match_rows := 0
         this.search_stack := Map("", this.word_list.root)
         gathered_input.Start()
         return
@@ -300,7 +299,7 @@ Class SuggestionsGui
         }
 
         this.AddMatchControls(hotstring_matches, word_matches)
-        if this.match_rows {
+        if this.matches.GetCount() {
             this.ResizeGui()
             this.ShowGui()
         }
@@ -310,24 +309,24 @@ Class SuggestionsGui
     }
 
     AddMatchControls(hotstring_matches, word_matches) {
+        this.matches.Opt("-Redraw")
         this.matches.Delete()
-        this.match_rows := 0
         for match in hotstring_matches {
             this.matches.Add(, match[1], match[2])
-            this.match_rows += 1
         }
         for match in word_matches {
             this.matches.Add(, match[1], match[2])
-            this.match_rows += 1
         }
 
         this.matches.Modify(1, "+Select +Focus")
         this.matches.ModifyCol()
         this.matches.ModifyCol(2, "AutoHdr")
+        this.matches.Opt("+Redraw")
     }
 
     ResizeGui(){
-        this.shown_rows := min(this.max_rows, this.match_rows)
+        this.shown_rows := min(this.max_rows, this.matches.GetCount())
+
         this.suggestions.Move(,,,this.shown_rows * 20) ; will have to change if font size changes
     }
 
