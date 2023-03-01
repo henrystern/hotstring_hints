@@ -76,17 +76,17 @@ Class SuggestionsGui
 {
     __New() {
         ; settings
-        this.hotstring_file := A_ScriptDir "/expansions.ahk"
+        this.hotstring_file := A_ScriptDir "/hotstrings/Autocorrect.ahk"
         this.max_rows := 10
-        this.min_show_length := 2
-        this.min_suggestion_length := 4
+        this.min_show_length := 1
+        this.min_suggestion_length := 1
         this.bg_colour := "2B2A33"
         this.text_colour := "C9C5A2"
         this.try_caret := True ; try to show gui under caret - will only work in some apps
+        this.load_hotstring_words := False
+        this.load_hotstring_triggers := True
         this.exact_match_word := False
         this.exact_match_hotstring := True
-        this.load_hotstring_words := True
-        this.load_hotstring_triggers := True
 
 
         this.suggestions := this.MakeGui()
@@ -163,17 +163,22 @@ Class SuggestionsGui
             if not prefix {
                 continue
             }
+            else if SubStr(hotstring, 1, prefix_length) = prefix {
+                send_str := "{Backspace " prefix_length "}" word
+                break
+            }  
             else if SubStr(word, 1, prefix_length) = prefix {
                 send_str := SubStr(word, prefix_length + 1)
                 break
             }
-            else if SubStr(hotstring, 1, prefix_length) = prefix {
-                send_str := "{Backspace " prefix_length "}" word
-                break
-            }
         }
-        this.suggestions.Hide()
-        Send send_str
+        if send_str {
+            this.suggestions.Hide()
+            Send send_str
+        }
+        else {
+            ; add new hotkey form
+        }
         this.ResetWord("Insert")
         return
     }
@@ -186,10 +191,10 @@ Class SuggestionsGui
 
     ChangeFocus(direction, *) {
         focused := ListViewGetContent("Count Focused", this.matches)
-        if direction = "Up" and this.match_rows {
+        if direction = "Up" {
             this.matches.Modify(Mod(focused - 1, this.match_rows), "+Select +Focus")
         }
-        else if direction = "Down" and this.match_rows {
+        else if direction = "Down" {
             this.matches.Modify(Mod(focused + 1, this.match_rows), "+Select +Focus")
         }
         return
@@ -214,6 +219,7 @@ Class SuggestionsGui
         }
         this.suggestions.Hide()
         this.matches.Delete()
+        this.match_rows := 0
         this.search_stack := Map("", this.word_list.root)
         gathered_input.Start()
         return
@@ -248,6 +254,11 @@ Class SuggestionsGui
     AltUpdateInput(hook, params*) {
         key := GetKeyName(Format("vk{:x}sc{:x}", params[1], params[2]))
         if key = "Backspace" {
+            if GetKeyState("Control") {
+                this.ResetWord("End_Key")
+                return
+            }
+
             old_search_stack := this.search_stack.Clone()
             for prefix, node in old_search_stack {
                 this.search_stack.Delete(prefix)
@@ -276,7 +287,7 @@ Class SuggestionsGui
         word_matches := []
 
         for prefix, node in this.search_stack {
-            if StrLen(prefix) < this.min_show_length {
+            if prefix = "" or StrLen(prefix) < this.min_show_length {
                 continue
             }
 
@@ -292,6 +303,9 @@ Class SuggestionsGui
         if this.match_rows {
             this.ResizeGui()
             this.ShowGui()
+        }
+        else {
+            this.suggestions.hide()
         }
     }
 
