@@ -3,6 +3,7 @@ CoordMode "Caret"
 
 ; todos
 ; read multi line hotstrings maybe a hover tooltip to see entire output
+; option for exact matches/storing triggers
 ; optimize -- store last Trie root and go from there if just a char addition
 
 ^r::Reload ; for development
@@ -159,7 +160,6 @@ UpdateSuggestions(hook, params*) {
         }
     }
     else if params[1] = " " or params[1] = "`n" or params[1] = Chr(0x1B) { ; Chr(0x1B) = "Esc"
-        tooltip "Reset, " params[1]
         ResetWord("End_Key")
         return
     }
