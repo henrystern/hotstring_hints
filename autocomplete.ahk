@@ -9,6 +9,7 @@ CoordMode "Caret"
 ; add stack for multi word hotstrings
 ; allow loading multiple hotkey files - with individual options
 ; optimize -- store last Trie root and go from there if just a char addition
+; order hints by length
 
 ^r::Reload ; for development
 Ins::show_searches
@@ -155,18 +156,25 @@ Class SuggestionsGui
     }
 
     InsertMatch(matches, row) {
-        prefix := gathered_input.Input
-        prefix_length := StrLen(prefix)
         word := matches.GetText(row, 2)
+        hotstring := matches.GetText(row, 1)
+        for prefix, _ in this.search_stack {
+            prefix_length := StrLen(prefix)
+            if not prefix {
+                continue
+            }
+            else if SubStr(word, 1, prefix_length) = prefix {
+                send_str := SubStr(word, prefix_length + 1)
+                break
+            }
+            else if SubStr(hotstring, 1, prefix_length) = prefix {
+                send_str := "{Backspace " prefix_length "}" word
+                break
+            }
+        }
+        this.suggestions.Hide()
+        Send send_str
         this.ResetWord("Insert")
-        if SubStr(word, 1, prefix_length) = prefix { ; to match case if trigger is a prefix
-            Send SubStr(word, prefix_length + 1)
-        }
-        else {
-            Send "{Backspace " prefix_length "}" ; delete the prefix
-            Send word
-        }
-        Send "{Space}"
         return
     }
 
@@ -204,8 +212,7 @@ Class SuggestionsGui
         if called_by is String { ; if not inputhook calling itself
             gathered_input.Stop()
         }
-
-        this.suggestions.hide()
+        this.suggestions.Hide()
         this.matches.Delete()
         this.search_stack := Map("", this.word_list.root)
         gathered_input.Start()
@@ -244,8 +251,10 @@ Class SuggestionsGui
             old_search_stack := this.search_stack.Clone()
             for prefix, node in old_search_stack {
                 this.search_stack.Delete(prefix)
-                new_prefix := SubStr(prefix, 1, -1)
-                this.search_stack[new_prefix] := this.word_list.FindNode(new_prefix)
+                if StrLen(prefix) > 1 {
+                    new_prefix := SubStr(prefix, 1, -1)
+                    this.search_stack[new_prefix] := this.word_list.FindNode(new_prefix)
+                }
             }
             this.UpdateSuggestions()
         }
@@ -279,11 +288,8 @@ Class SuggestionsGui
             }
         }
 
-        if not (hotstring_matches or word_matches) {
-            this.suggestions.hide()
-        }
-        else {
-            this.AddMatchControls(hotstring_matches, word_matches)
+        this.AddMatchControls(hotstring_matches, word_matches)
+        if this.match_rows {
             this.ResizeGui()
             this.ShowGui()
         }
