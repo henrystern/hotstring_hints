@@ -77,7 +77,7 @@ Class SuggestionsGui
         ; settings
         this.settings := ReadSettings("Settings")
 
-        this.suggestions := this.MakeGui()
+        this.window := this.MakeGui()
         this.matches := this.MakeLV(this.settings["bg_colour"], this.settings["text_colour"])
 
         ; Load wordlist
@@ -103,18 +103,18 @@ Class SuggestionsGui
     }
 
     MakeGui() {
-        suggestions := Gui("+AlwaysOnTop +ToolWindow -Caption -DPIScale", "Completion Menu", this)
-        suggestions.MarginX := 0
-        suggestions.MarginY := 0
-        suggestions.SetFont("S" this.settings["font_size"], this.settings["font"])
-        return suggestions
+        window := Gui("+AlwaysOnTop +ToolWindow -Caption -DPIScale", "Completion Menu", this)
+        window.MarginX := 0
+        window.MarginY := 0
+        window.SetFont("S" this.settings["font_size"], this.settings["font"])
+        return window
     }
 
     MakeLV(bg_colour, text_colour) {
-        matches := this.suggestions.Add("ListView", "r" this.settings["max_visible_rows"] " w" this.settings["gui_width"] " +Grid -Multi -Hdr +Background" bg_colour " +C" text_colour " -E0x200", ["Abbr.", "Word"]) ; E0x200 hides border
+        matches := this.window.Add("ListView", "r" this.settings["max_visible_rows"] " w" this.settings["gui_width"] " +Grid -Multi -Hdr +Background" bg_colour " +C" text_colour " -E0x200", ["Abbr.", "Word"]) ; E0x200 hides border
         matches.OnEvent("DoubleClick", "InsertMatch")
         matches.OnEvent("ItemEdit", "ModifyHotstring")
-        this.suggestions.Show("Hide") ; makes gui resizable to correct number of rows on first suggestion
+        this.window.Show("Hide") ; makes gui resizable to correct number of rows on first suggestion
         return matches
     }
 
@@ -181,7 +181,7 @@ Class SuggestionsGui
                 break
             }
         }
-        this.suggestions.Hide()
+        this.window.Hide()
         if send_str {
             SendLevel 1 ; to reset hotstrings in other scripts
             Send send_str
@@ -218,7 +218,7 @@ Class SuggestionsGui
         if called_by is String { ; if not inputhook calling itself
             gathered_input.Stop()
         }
-        this.suggestions.Hide()
+        this.window.Hide()
         this.matches.Delete()
         this.search_stack := Map("", this.word_list.root)
         gathered_input.Start()
@@ -306,7 +306,7 @@ Class SuggestionsGui
             this.ShowGui()
         }
         else {
-            this.suggestions.hide()
+            this.window.hide()
         }
     }
 
@@ -335,16 +335,16 @@ Class SuggestionsGui
     ResizeGui(){
         this.shown_rows := min(this.settings["max_visible_rows"], this.matches.GetCount())
 
-        this.suggestions.Move(,, this.settings["gui_width"] - this.settings["scrollbar_width"], this.shown_rows * this.settings["row_height"]) ; font dependent, width hides scrollbar
+        this.window.Move(,, this.settings["gui_width"] - this.settings["scrollbar_width"], this.shown_rows * this.settings["row_height"]) ; font dependent, width hides scrollbar
     }
 
     ShowGui(){
         if this.settings["try_caret"] and CaretGetPos(&x, &y) {
-            this.suggestions.Show("x" x " y" y + this.settings["caret_offset"] " NoActivate")
+            this.window.Show("x" x " y" y + this.settings["caret_offset"] " NoActivate")
         }
         else {
             pos := FindActivePos()
-            this.suggestions.Show("x" pos[1] - this.settings["gui_width"] " y" pos[2] - 10 - this.shown_rows * this.settings["row_height"] " NoActivate")
+            this.window.Show("x" pos[1] - this.settings["gui_width"] " y" pos[2] - 10 - this.shown_rows * this.settings["row_height"] " NoActivate")
         }
     }
 
