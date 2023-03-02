@@ -1,15 +1,11 @@
 ﻿#Requires AutoHotkey v2.0-a
 CoordMode "Caret"
 
-; this branch searches across multiple prefixes rather than just keeping one word as the prefix. It is fairly resource intensive when typing quickly
-
 ; todos
 ; read multi line hotstrings maybe a hover tooltip to see entire output
-; better hotstring modification and implement adding hotstrings
 ; order hints by length/score
 
 ^r::Reload ; for development
-Ins::show_searches
 
 If (A_ScriptFullPath = A_LineFile) {
     ; Objects
@@ -46,14 +42,6 @@ If (A_ScriptFullPath = A_LineFile) {
     HotIf
 }
 
-show_searches(*) {
-    out := ""
-    for prefix, _ in completion_menu.search_stack {
-        out .= prefix "`n"
-    }
-    msgbox out
-}
-
 FindActivePos() {
     num_monitors := MonitorGetCount()
     if WinGetID("A") {
@@ -68,39 +56,42 @@ FindActivePos() {
     }
 }
 
+ReadSettings(settings_category) {
+    raw_settings := IniRead("settings.ini", settings_category)
+    settings := Map()
+    Loop Parse, raw_settings, "`n"
+    {
+        Array := StrSplit(A_LoopField, "=")
+        settings[Array[1]] := Trim(Array[2])
+    }
+    return settings 
+}
 
 Class SuggestionsGui
 {
     __New() {
         ; settings
-        ;                         Script path                                Load words  Load triggers
-        this.hotstring_files := [[A_ScriptDir "/hotstrings/Autocorrect.ahk", False     , True         ]
-                                 , [A_ScriptDir "/expansions.ahk", True, True]]
-        this.word_list_files := [] ; just script path
-        this.max_visible_rows:= 10
-        this.max_rows := 20
-        this.min_show_length := 2
-        this.min_suggestion_length := 2
-        this.light_colour := "FAEBEF"
-        this.dark_colour := "333D79"
-        this.try_caret := True ; try to show gui under caret - will only work in some apps
-        this.exact_match_word := False
-        this.exact_match_hotstring := True
+        this.settings := ReadSettings("Settings")
 
         this.suggestions := this.MakeGui()
-        this.matches := this.MakeLV(this.light_colour, this.dark_colour)
-        ; this.matches := this.MakeLV(this.dark_colour, this.light_colour)
+        this.matches := this.MakeLV(this.settings["bg_colour"], this.settings["text_colour"])
 
         ; Load wordlist
         this.word_list := TrieNode()
-        for file in this.hotstring_files {
-            path := file[1]
-            load_words := file[2]
-            load_triggers := file[3]
+
+        hotstring_files := StrSplit(this.settings.Get("hotstring_files", ""), ",")
+        index := 1
+        while index < hotstring_files.Length {
+            path := hotstring_files[index]
+            load_words := hotstring_files[index + 1]
+            load_triggers := hotstring_files[index + 2]
             this.LoadHotstringFile(path, load_words, load_triggers)
             Run path
+            index += 3
         }
-        for file in this.word_list_files {
+
+        word_list_files := StrSplit(this.settings.Get("word_list_files", ""), ",")
+        for file in word_list_files {
             this.LoadWordFile(file)
         }
 
@@ -117,7 +108,7 @@ Class SuggestionsGui
     }
 
     MakeLV(bg_colour, text_colour) {
-        matches := this.suggestions.Add("ListView", "r" this.max_visible_rows " w200 +Grid -Multi -Hdr +Background" bg_colour " +C" text_colour " -E0x200", ["Abbr.", "Word"]) ; E0x200 hides border
+        matches := this.suggestions.Add("ListView", "r" this.settings["max_visible_rows"] " w200 +Grid -Multi -Hdr +Background" bg_colour " +C" text_colour " -E0x200", ["Abbr.", "Word"]) ; E0x200 hides border
         matches.OnEvent("DoubleClick", "InsertMatch")
         matches.OnEvent("ItemEdit", "ModifyHotstring")
 
@@ -150,7 +141,7 @@ Class SuggestionsGui
     }
 
     LoadWord(word) {
-        if StrLen(word) >= this.min_suggestion_length {
+        if StrLen(word) >= this.settings["min_suggestion_length"] {
             this.word_list.Insert(A_LoopReadLine)
         }
     }
@@ -159,7 +150,7 @@ Class SuggestionsGui
         split := StrSplit(hstring, "::")
         trigger := split[2]
         word := split[3]
-        if StrLen(word) >= this.min_suggestion_length {
+        if StrLen(word) >= this.settings["min_suggestion_length"] {
             if load_word {
                 this.word_list.Insert(word, trigger, "is_word")
             }
@@ -297,15 +288,15 @@ Class SuggestionsGui
         word_matches := []
 
         for prefix, node in this.search_stack {
-            if prefix = "" or StrLen(prefix) < this.min_show_length {
+            if prefix = "" or StrLen(prefix) < this.settings["min_show_length"] {
                 continue
             }
 
             if this.loaded_triggers {
-                hotstring_matches.Push(this.FindMatches(prefix, node, "is_hotstring", this.exact_match_hotstring)*)
+                hotstring_matches.Push(this.FindMatches(prefix, node, "is_hotstring", this.settings["exact_match_hotstring"])*)
             }
             if this.loaded_words {
-                word_matches.Push(this.FindMatches(prefix, node, "is_word", this.exact_match_word)*)
+                word_matches.Push(this.FindMatches(prefix, node, "is_word", this.settings["exact_match_word"])*)
             }
         }
 
@@ -323,13 +314,13 @@ Class SuggestionsGui
         this.matches.Opt("-Redraw")
         this.matches.Delete()
         for match in hotstring_matches {
-            if this.matches.GetCount() > this.max_rows {
+            if this.matches.GetCount() > this.settings["max_rows"] {
                 break
             }
             this.matches.Add(, match[1], match[2])
         }
         for match in word_matches {
-            if this.matches.GetCount() > this.max_rows {
+            if this.matches.GetCount() > this.settings["max_rows"] {
                 break
             }
             this.matches.Add(, match[1], match[2])
@@ -342,14 +333,14 @@ Class SuggestionsGui
     }
 
     ResizeGui(){
-        this.shown_rows := min(this.max_visible_rows, this.matches.GetCount())
+        this.shown_rows := min(this.settings["max_visible_rows"], this.matches.GetCount())
 
         this.suggestions.Move(,,180,this.shown_rows * 24) ; font dependent, width hides scrollbar
     }
 
     ShowGui(){
         static monitor_boundary := SysGet(78)
-        if this.try_caret and CaretGetPos(&x, &y) {
+        if this.settings["try_caret"] and CaretGetPos(&x, &y) {
             this.suggestions.Show("x" x " y" y + 20 " NoActivate")
         }
         else {
