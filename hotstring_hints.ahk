@@ -30,10 +30,10 @@ If (A_ScriptFullPath = A_LineFile) {
 
     HotIfWinExist "Completion Menu"
     Hotkey "~LButton", check_click
-    Hotkey "^Space", insert_match
-    Hotkey "Tab", change_focus_down
-    Hotkey "+Tab", change_focus_up
-    Hotkey "^k", reset
+    Hotkey completion_menu.settings["insert_hotkey"], insert_match
+    Hotkey completion_menu.settings["next_item"], change_focus_down
+    Hotkey completion_menu.settings["previous_item"], change_focus_up
+    Hotkey completion_menu.settings["hide_menu"], reset
 
     HotIf
 }
