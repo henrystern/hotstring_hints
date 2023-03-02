@@ -4,6 +4,7 @@ CoordMode "Caret"
 ; todos
 ; read multi line hotstrings maybe a hover tooltip to see entire output
 ; order hints by length/score
+; fix exact_match bug
 
 ^r::Reload ; for development
 
@@ -57,7 +58,14 @@ FindActivePos() {
 }
 
 ReadSettings(settings_category) {
-    raw_settings := IniRead("settings.ini", settings_category)
+    raw_settings := IniRead("settings.ini", settings_category,, False)
+    if not raw_settings {
+        raw_settings := IniRead("example_settings.ini", settings_category,, False)
+    }
+    if not raw_settings {
+        msgbox "No settings.ini or example_settings.ini detected. Ensure a settings file is located in the script directory."
+        ExitApp
+    }
     settings := Map()
     Loop Parse, raw_settings, "`n"
     {
@@ -86,7 +94,6 @@ Class SuggestionsGui
             load_words := hotstring_files[index + 1]
             load_triggers := hotstring_files[index + 2]
             this.LoadHotstringFile(path, load_words, load_triggers)
-            Run path
             index += 3
         }
 
@@ -100,18 +107,17 @@ Class SuggestionsGui
     }
 
     MakeGui() {
-        suggestions := Gui("+AlwaysOnTop +ToolWindow -Caption", "Completion Menu", this)
+        suggestions := Gui("+AlwaysOnTop +ToolWindow -Caption -DPIScale", "Completion Menu", this)
         suggestions.MarginX := 0
         suggestions.MarginY := 0
-        suggestions.SetFont("S12", "sans-serif")
+        suggestions.SetFont("S" this.settings["font_size"], this.settings["font"])
         return suggestions
     }
 
     MakeLV(bg_colour, text_colour) {
-        matches := this.suggestions.Add("ListView", "r" this.settings["max_visible_rows"] " w200 +Grid -Multi -Hdr +Background" bg_colour " +C" text_colour " -E0x200", ["Abbr.", "Word"]) ; E0x200 hides border
+        matches := this.suggestions.Add("ListView", "r" this.settings["max_visible_rows"] " w" this.settings["gui_width"] " +Grid -Multi -Hdr +Background" bg_colour " +C" text_colour " -E0x200", ["Abbr.", "Word"]) ; E0x200 hides border
         matches.OnEvent("DoubleClick", "InsertMatch")
         matches.OnEvent("ItemEdit", "ModifyHotstring")
-
         this.suggestions.Show("Hide") ; makes gui resizable to correct number of rows on first suggestion
         return matches
     }
@@ -123,7 +129,7 @@ Class SuggestionsGui
     }
 
     LoadHotstringFile(hotstring_file, load_word, load_trigger) {
-        if load_word {
+        if load_word { ; saves trying to match if there are none loaded
             this.loaded_words := True
         }
         if load_trigger {
@@ -131,7 +137,7 @@ Class SuggestionsGui
         }
         Loop read, hotstring_file {
             first_two := SubStr(A_LoopReadLine, 1, 2)
-            if first_two = "::" {
+            if first_two = "::" { ; could expand to include other hotstring styles with minor adjustments
                 this.LoadHotstring(A_LoopReadLine, load_word, load_trigger)
             }
             else {
@@ -169,6 +175,7 @@ Class SuggestionsGui
             if not prefix {
                 continue
             }
+            ; find the matching prefix in the search stack and remove that many characters from the input
             else if SubStr(hotstring, 1, prefix_length) = prefix {
                 send_str := "{Backspace " prefix_length "}" word
                 break
@@ -184,9 +191,9 @@ Class SuggestionsGui
             Send send_str
             SendLevel 0
         }
-        else {
-            ; add new hotkey form
-        }
+        ; else {
+            ; could add new hotkey from here. it would trigger whenever you double clicked an empty row with -readonly in gui.
+        ; }
         return
     }
 
@@ -225,24 +232,21 @@ Class SuggestionsGui
     CharUpdateInput(hook, params*) {
         key := params[1]
         if key = Chr(0x1B) { ; Chr(0x1B) = "Esc", Chr(0x9) = "Tab"
-            ; tooltip "reset by " params[1]
             this.ResetWord("End_Key")
             return
         }
 
-        ; tooltip "add " params[1]
-        old_search_stack := this.search_stack.Clone()
+        old_search_stack := this.search_stack.Clone() ; optimizations?
+        ; Update the items in the stack with the new character. Deletes items with no more matching branches.
         for prefix, node in old_search_stack {
             this.search_stack.Delete(prefix)
             new_prefix := prefix . key
-            ; tooltip "delete " prefix ", add " new_prefix
             if node.Has(key) {
                 this.search_stack[new_prefix] := node[key]
             }
         }
 
         if key = " " or key = "`n" or key = Chr(0x9) { ; Chr(0x9) = "Tab"
-            ; tooltip "add new word " key
             this.search_stack[""] := this.word_list.root
         }
 
@@ -258,8 +262,9 @@ Class SuggestionsGui
             }
 
             old_search_stack := this.search_stack.Clone()
+            ; removes the last character from each string in the search stack and resets the node
             for prefix, node in old_search_stack {
-                this.search_stack.Delete(prefix)
+                this.search_stack.Delete(prefix) 
                 if StrLen(prefix) > 1 {
                     new_prefix := SubStr(prefix, 1, -1)
                     this.search_stack[new_prefix] := this.word_list.FindNode(new_prefix)
@@ -271,10 +276,9 @@ Class SuggestionsGui
             this.UpdateSuggestions()
         }
         else if (key = "LShift" or key = "RShift" or key = "LControl" or key = "RControl" or key = "Capslock") {
-            ; tooltip "ignored " key
+            ; ignored keypresses - non alpha modified presses (eg ctrl+s) will still trigger ResetWord through the modified "s"
         }
         else {
-            ; tooltip "reset by " key
             this.ResetWord("End_Key")
         }
     }
@@ -314,7 +318,7 @@ Class SuggestionsGui
         this.matches.Opt("-Redraw")
         this.matches.Delete()
         for match in hotstring_matches {
-            if this.matches.GetCount() > this.settings["max_rows"] {
+            if this.matches.GetCount() > this.settings["max_rows"] { ; big optimization but could improve selection rather than hotstrings always getting priority
                 break
             }
             this.matches.Add(, match[1], match[2])
@@ -335,17 +339,16 @@ Class SuggestionsGui
     ResizeGui(){
         this.shown_rows := min(this.settings["max_visible_rows"], this.matches.GetCount())
 
-        this.suggestions.Move(,,180,this.shown_rows * 24) ; font dependent, width hides scrollbar
+        this.suggestions.Move(,, this.settings["gui_width"] - this.settings["scrollbar_width"], this.shown_rows * this.settings["row_height"]) ; font dependent, width hides scrollbar
     }
 
     ShowGui(){
-        static monitor_boundary := SysGet(78)
         if this.settings["try_caret"] and CaretGetPos(&x, &y) {
-            this.suggestions.Show("x" x " y" y + 20 " NoActivate")
+            this.suggestions.Show("x" x " y" y + this.settings["caret_offset"] " NoActivate")
         }
         else {
             pos := FindActivePos()
-            this.suggestions.Show("x" pos[1] - 190 " y" pos[2] - 10 - this.shown_rows * 24 " NoActivate")
+            this.suggestions.Show("x" pos[1] - this.settings["gui_width"] " y" pos[2] - 10 - this.shown_rows * this.settings["row_height"] " NoActivate")
         }
     }
 
