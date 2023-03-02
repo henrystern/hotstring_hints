@@ -4,9 +4,6 @@ CoordMode "Caret"
 ; todos
 ; read multi line hotstrings maybe a hover tooltip to see entire output
 ; order hints by length/score
-; fix exact_match bug
-
-^r::Reload ; for development
 
 If (A_ScriptFullPath = A_LineFile) {
     ; Objects
@@ -406,7 +403,12 @@ Class TrieNode
     MatchWord(word, root, match_key) {
         match_list := Array()
         if root.Has(match_key) {
-            match_list.Push(Array(word, root[match_key]))
+            if match_key = "is_hotstring" {
+                match_list.Push(Array(word, root[match_key]))
+            }
+            else {
+                match_list.Push(Array(root[match_key], word))
+            }
         }
         return match_list
     }
@@ -420,7 +422,12 @@ Class TrieNode
             node := next[2]
             for char, child in node {
                 if char = match_key {
-                    match_list.Push(Array(child, string))
+                    if match_key = "is_hotstring" {
+                        match_list.Push(Array(string, child))
+                    }
+                    else {
+                        match_list.Push(Array(child, string))
+                    }
                 }
                 else if child is Map {
                     stack.Push(Array(string . char, child))
