@@ -6,7 +6,6 @@ CoordMode "Caret"
 ; todos
 ; read multi line hotstrings maybe a hover tooltip to see entire output
 ; better hotstring modification and implement adding hotstrings
-; allow loading multiple hotkey files with individual options
 ; order hints by length/score
 
 ^r::Reload ; for development
@@ -74,20 +73,19 @@ Class SuggestionsGui
 {
     __New() {
         ; settings
-        this.hotstring_files := [A_ScriptDir "/hotstrings/Autocorrect.ahk", A_ScriptDir "/expansions.ahk"]
-        this.word_list_files := []
-        this.max_rows_shown := 10
+        ;                         Script path                                Load words  Load triggers
+        this.hotstring_files := [[A_ScriptDir "/hotstrings/Autocorrect.ahk", False     , True         ]
+                                 , [A_ScriptDir "/expansions.ahk", True, True]]
+        this.word_list_files := [] ; just script path
+        this.max_visible_rows:= 10
         this.max_rows := 20
         this.min_show_length := 2
         this.min_suggestion_length := 2
         this.bg_colour := "2B2A33"
         this.text_colour := "C9C5A2"
         this.try_caret := True ; try to show gui under caret - will only work in some apps
-        this.load_hotstring_words := True
-        this.load_hotstring_triggers := True
         this.exact_match_word := False
         this.exact_match_hotstring := True
-
 
         this.suggestions := this.MakeGui()
         this.matches := this.MakeLV()
@@ -95,8 +93,11 @@ Class SuggestionsGui
         ; Load wordlist
         this.word_list := TrieNode()
         for file in this.hotstring_files {
-            this.LoadHotstringFile(file)
-            Run file
+            path := file[1]
+            load_words := file[2]
+            load_triggers := file[3]
+            this.LoadHotstringFile(path, load_words, load_triggers)
+            Run path
         }
         for file in this.word_list_files {
             this.LoadWordFile(file)
@@ -115,7 +116,7 @@ Class SuggestionsGui
     }
 
     MakeLV() {
-        matches := this.suggestions.Add("ListView", "r" this.max_rows_shown " w200 +Grid -Multi -ReadOnly -Hdr +Background" this.bg_colour " +C" this.text_colour " -E0x200", ["Abbr.", "Word"]) ; E0x200 hides border
+        matches := this.suggestions.Add("ListView", "r" this.max_visible_rows " w200 +Grid -Multi -ReadOnly -Hdr +Background" this.bg_colour " +C" this.text_colour " -E0x200", ["Abbr.", "Word"]) ; E0x200 hides border
         matches.OnEvent("DoubleClick", "InsertMatch")
         matches.OnEvent("ItemEdit", "ModifyHotstring")
 
@@ -129,11 +130,17 @@ Class SuggestionsGui
         }
     }
 
-    LoadHotstringFile(hotstring_file) {
+    LoadHotstringFile(hotstring_file, load_word, load_trigger) {
+        if load_word {
+            this.loaded_words := True
+        }
+        if load_trigger {
+            this.loaded_triggers := True
+        }
         Loop read, hotstring_file {
             first_two := SubStr(A_LoopReadLine, 1, 2)
             if first_two = "::" {
-                this.LoadHotstring(A_LoopReadLine)
+                this.LoadHotstring(A_LoopReadLine, load_word, load_trigger)
             }
             else {
                 continue
@@ -147,15 +154,15 @@ Class SuggestionsGui
         }
     }
 
-    LoadHotstring(hstring) {
+    LoadHotstring(hstring, load_word, load_trigger) {
         split := StrSplit(hstring, "::")
         trigger := split[2]
         word := split[3]
         if StrLen(word) >= this.min_suggestion_length {
-            if this.load_hotstring_words {
+            if load_word {
                 this.word_list.Insert(word, trigger, "is_word")
             }
-            if this.load_hotstring_triggers {
+            if load_trigger {
                 this.word_list.Insert(trigger, word, "is_hotstring")
             }
         }
@@ -178,9 +185,11 @@ Class SuggestionsGui
                 break
             }
         }
-        this.ResetWord("Insert")
+        this.suggestions.Hide()
         if send_str {
+            SendLevel 1 ; to reset hotstrings in other scripts
             Send send_str
+            SendLevel 0
         }
         else {
             ; add new hotkey form
@@ -209,12 +218,8 @@ Class SuggestionsGui
         ; trigger := this.matches.GetText(row, 1)
         ; word := this.matches.GetText(row, 2)
         ; FileAppend "`r`n::" trigger "::" word, this.hotstring_file
-        ; if this.load_hotstring_words {
-        ;     this.word_list.Insert(word, trigger, "is_word")
-        ; }
-        ; if this.load_hotstring_triggers {
-        ;     this.word_list.Insert(trigger, word, "is_hotstring")
-        ; }
+        ; this.word_list.Insert(word, trigger, "is_word")
+        ; this.word_list.Insert(trigger, word, "is_hotstring")
         ; Run this.hotstring_file
     }
 
@@ -299,10 +304,10 @@ Class SuggestionsGui
                 continue
             }
 
-            if this.load_hotstring_triggers {
+            if this.loaded_triggers {
                 hotstring_matches.Push(this.FindMatches(prefix, node, "is_hotstring", this.exact_match_hotstring)*)
             }
-            if this.load_hotstring_words {
+            if this.loaded_words {
                 word_matches.Push(this.FindMatches(prefix, node, "is_word", this.exact_match_word)*)
             }
         }
@@ -340,7 +345,7 @@ Class SuggestionsGui
     }
 
     ResizeGui(){
-        this.shown_rows := min(this.max_rows_shown, this.matches.GetCount())
+        this.shown_rows := min(this.max_visible_rows, this.matches.GetCount())
 
         this.suggestions.Move(,,,this.shown_rows * 20) ; will have to change if font size changes
     }
