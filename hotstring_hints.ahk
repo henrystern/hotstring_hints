@@ -25,7 +25,6 @@ If (A_ScriptFullPath = A_LineFile) {
 
     ; Hotkeys
     HotIf
-    Hotkey "~SC03A & ~SC027", reset
     Hotkey "~LButton", reset
     Hotkey "~MButton", reset
     Hotkey "~RButton", reset
