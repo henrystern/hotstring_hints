@@ -6,10 +6,8 @@ CoordMode "Caret"
 ; todos
 ; read multi line hotstrings maybe a hover tooltip to see entire output
 ; better hotstring modification and implement adding hotstrings
-; add stack for multi word hotstrings
-; allow loading multiple hotkey files - with individual options
-; optimize -- store last Trie root and go from there if just a char addition
-; order hints by length
+; allow loading multiple hotkey files with individual options
+; order hints by length/score
 
 ^r::Reload ; for development
 Ins::show_searches
@@ -76,14 +74,16 @@ Class SuggestionsGui
 {
     __New() {
         ; settings
-        this.hotstring_file := A_ScriptDir "/hotstrings/Autocorrect.ahk"
-        this.max_rows := 10
-        this.min_show_length := 1
-        this.min_suggestion_length := 1
+        this.hotstring_files := [A_ScriptDir "/hotstrings/Autocorrect.ahk", A_ScriptDir "/expansions.ahk"]
+        this.word_list_files := []
+        this.max_rows_shown := 10
+        this.max_rows := 20
+        this.min_show_length := 2
+        this.min_suggestion_length := 2
         this.bg_colour := "2B2A33"
         this.text_colour := "C9C5A2"
         this.try_caret := True ; try to show gui under caret - will only work in some apps
-        this.load_hotstring_words := False
+        this.load_hotstring_words := True
         this.load_hotstring_triggers := True
         this.exact_match_word := False
         this.exact_match_hotstring := True
@@ -94,7 +94,13 @@ Class SuggestionsGui
 
         ; Load wordlist
         this.word_list := TrieNode()
-        this.LoadHotstringFile(this.hotstring_file)
+        for file in this.hotstring_files {
+            this.LoadHotstringFile(file)
+            Run file
+        }
+        for file in this.word_list_files {
+            this.LoadWordFile(file)
+        }
 
         ; State
         this.search_stack := Map("", this.word_list.root)
@@ -109,7 +115,7 @@ Class SuggestionsGui
     }
 
     MakeLV() {
-        matches := this.suggestions.Add("ListView", "r" this.max_rows " w200 +Grid -Multi -ReadOnly -Hdr +Background" this.bg_colour " +C" this.text_colour " -E0x200", ["Abbr.", "Word"]) ; E0x200 hides border
+        matches := this.suggestions.Add("ListView", "r" this.max_rows_shown " w200 +Grid -Multi -ReadOnly -Hdr +Background" this.bg_colour " +C" this.text_colour " -E0x200", ["Abbr.", "Word"]) ; E0x200 hides border
         matches.OnEvent("DoubleClick", "InsertMatch")
         matches.OnEvent("ItemEdit", "ModifyHotstring")
 
@@ -172,14 +178,13 @@ Class SuggestionsGui
                 break
             }
         }
+        this.ResetWord("Insert")
         if send_str {
-            this.suggestions.Hide()
             Send send_str
         }
         else {
             ; add new hotkey form
         }
-        this.ResetWord("Insert")
         return
     }
 
@@ -201,16 +206,16 @@ Class SuggestionsGui
     }
 
     ModifyHotstring(matches, row) {
-        trigger := this.matches.GetText(row, 1)
-        word := this.matches.GetText(row, 2)
-        FileAppend "`r`n::" trigger "::" word, this.hotstring_file
-        if this.load_hotstring_words {
-            this.word_list.Insert(word, trigger, "is_word")
-        }
-        if this.load_hotstring_triggers {
-            this.word_list.Insert(trigger, word, "is_hotstring")
-        }
-        Run this.hotstring_file
+        ; trigger := this.matches.GetText(row, 1)
+        ; word := this.matches.GetText(row, 2)
+        ; FileAppend "`r`n::" trigger "::" word, this.hotstring_file
+        ; if this.load_hotstring_words {
+        ;     this.word_list.Insert(word, trigger, "is_word")
+        ; }
+        ; if this.load_hotstring_triggers {
+        ;     this.word_list.Insert(trigger, word, "is_hotstring")
+        ; }
+        ; Run this.hotstring_file
     }
 
     ResetWord(called_by) {
@@ -225,7 +230,8 @@ Class SuggestionsGui
     }
 
     CharUpdateInput(hook, params*) {
-        if params[1] = Chr(0x1B) { ; Chr(0x1B) = "Esc", Chr(0x9) = "Tab"
+        key := params[1]
+        if key = Chr(0x1B) { ; Chr(0x1B) = "Esc", Chr(0x9) = "Tab"
             ; tooltip "reset by " params[1]
             this.ResetWord("End_Key")
             return
@@ -235,15 +241,15 @@ Class SuggestionsGui
         old_search_stack := this.search_stack.Clone()
         for prefix, node in old_search_stack {
             this.search_stack.Delete(prefix)
-            new_prefix := prefix . params[1]
+            new_prefix := prefix . key
             ; tooltip "delete " prefix ", add " new_prefix
-            if node.Has(params[1]) {
-                this.search_stack[new_prefix] := node[params[1]]
+            if node.Has(key) {
+                this.search_stack[new_prefix] := node[key]
             }
         }
 
-        if params[1] = " " or params[1] = "`n" or params[1] = Chr(0x9) { ; Chr(0x9) = "Tab"
-            ; tooltip "add new word " params[1]
+        if key = " " or key = "`n" or key = Chr(0x9) { ; Chr(0x9) = "Tab"
+            ; tooltip "add new word " key
             this.search_stack[""] := this.word_list.root
         }
 
@@ -264,6 +270,9 @@ Class SuggestionsGui
                 if StrLen(prefix) > 1 {
                     new_prefix := SubStr(prefix, 1, -1)
                     this.search_stack[new_prefix] := this.word_list.FindNode(new_prefix)
+                }
+                else {
+                    this.search_stack[""] := this.word_list.root
                 }
             }
             this.UpdateSuggestions()
@@ -312,9 +321,15 @@ Class SuggestionsGui
         this.matches.Opt("-Redraw")
         this.matches.Delete()
         for match in hotstring_matches {
+            if this.matches.GetCount() > this.max_rows {
+                break
+            }
             this.matches.Add(, match[1], match[2])
         }
         for match in word_matches {
+            if this.matches.GetCount() > this.max_rows {
+                break
+            }
             this.matches.Add(, match[1], match[2])
         }
 
@@ -325,7 +340,7 @@ Class SuggestionsGui
     }
 
     ResizeGui(){
-        this.shown_rows := min(this.max_rows, this.matches.GetCount())
+        this.shown_rows := min(this.max_rows_shown, this.matches.GetCount())
 
         this.suggestions.Move(,,,this.shown_rows * 20) ; will have to change if font size changes
     }
