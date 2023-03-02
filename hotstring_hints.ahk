@@ -186,8 +186,9 @@ Class SuggestionsGui
         this.window.Hide()
         if send_str {
             SendLevel 1 ; to reset hotstrings in other scripts
-            Send send_str this.settings["end_char"]
+            Send send_str
             SendLevel 0
+            Send this.settings["end_char"]
         }
         ; else {
             ; could add new hotkey from here. it would trigger whenever you double clicked an empty row with -readonly in gui.
