@@ -81,14 +81,15 @@ Class SuggestionsGui
         this.max_rows := 20
         this.min_show_length := 2
         this.min_suggestion_length := 2
-        this.bg_colour := "2B2A33"
-        this.text_colour := "C9C5A2"
+        this.light_colour := "FAEBEF"
+        this.dark_colour := "333D79"
         this.try_caret := True ; try to show gui under caret - will only work in some apps
         this.exact_match_word := False
         this.exact_match_hotstring := True
 
         this.suggestions := this.MakeGui()
-        this.matches := this.MakeLV()
+        this.matches := this.MakeLV(this.light_colour, this.dark_colour)
+        ; this.matches := this.MakeLV(this.dark_colour, this.light_colour)
 
         ; Load wordlist
         this.word_list := TrieNode()
@@ -111,12 +112,12 @@ Class SuggestionsGui
         suggestions := Gui("+AlwaysOnTop +ToolWindow -Caption", "Completion Menu", this)
         suggestions.MarginX := 0
         suggestions.MarginY := 0
-        suggestions.SetFont("S10", "Verdana")
+        suggestions.SetFont("S12", "sans-serif")
         return suggestions
     }
 
-    MakeLV() {
-        matches := this.suggestions.Add("ListView", "r" this.max_visible_rows " w200 +Grid -Multi -ReadOnly -Hdr +Background" this.bg_colour " +C" this.text_colour " -E0x200", ["Abbr.", "Word"]) ; E0x200 hides border
+    MakeLV(bg_colour, text_colour) {
+        matches := this.suggestions.Add("ListView", "r" this.max_visible_rows " w200 +Grid -Multi -Hdr +Background" bg_colour " +C" text_colour " -E0x200", ["Abbr.", "Word"]) ; E0x200 hides border
         matches.OnEvent("DoubleClick", "InsertMatch")
         matches.OnEvent("ItemEdit", "ModifyHotstring")
 
@@ -171,6 +172,7 @@ Class SuggestionsGui
     InsertMatch(matches, row) {
         word := matches.GetText(row, 2)
         hotstring := matches.GetText(row, 1)
+        send_str := ""
         for prefix, _ in this.search_stack {
             prefix_length := StrLen(prefix)
             if not prefix {
@@ -206,21 +208,16 @@ Class SuggestionsGui
     ChangeFocus(direction, *) {
         focused := ListViewGetContent("Count Focused", this.matches)
         if direction = "Up" {
-            this.matches.Modify(Mod(focused - 1, this.matches.GetCount()), "+Select +Focus")
+            new_focused := focused = 1 ? this.matches.GetCount() : focused - 1
         }
         else if direction = "Down" {
-            this.matches.Modify(Mod(focused + 1, this.matches.GetCount()), "+Select +Focus")
+            new_focused := focused = this.matches.GetCount() ? 1 : focused + 1
         }
+        else {
+            return
+        }
+        this.matches.Modify(new_focused, "+Select +Focus +Vis")
         return
-    }
-
-    ModifyHotstring(matches, row) {
-        ; trigger := this.matches.GetText(row, 1)
-        ; word := this.matches.GetText(row, 2)
-        ; FileAppend "`r`n::" trigger "::" word, this.hotstring_file
-        ; this.word_list.Insert(word, trigger, "is_word")
-        ; this.word_list.Insert(trigger, word, "is_hotstring")
-        ; Run this.hotstring_file
     }
 
     ResetWord(called_by) {
@@ -347,16 +344,17 @@ Class SuggestionsGui
     ResizeGui(){
         this.shown_rows := min(this.max_visible_rows, this.matches.GetCount())
 
-        this.suggestions.Move(,,,this.shown_rows * 20) ; will have to change if font size changes
+        this.suggestions.Move(,,180,this.shown_rows * 24) ; font dependent, width hides scrollbar
     }
 
     ShowGui(){
+        static monitor_boundary := SysGet(78)
         if this.try_caret and CaretGetPos(&x, &y) {
             this.suggestions.Show("x" x " y" y + 20 " NoActivate")
         }
         else {
             pos := FindActivePos()
-            this.suggestions.Show("x" pos[1] - 200 " y" pos[2] - 10 - this.shown_rows * 20 " NoActivate")
+            this.suggestions.Show("x" pos[1] - 190 " y" pos[2] - 10 - this.shown_rows * 24 " NoActivate")
         }
     }
 
