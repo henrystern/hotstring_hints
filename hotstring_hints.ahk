@@ -186,7 +186,7 @@ Class SuggestionsGui
         this.window.Hide()
         if send_str {
             SendLevel 1 ; to reset hotstrings in other scripts
-            Send send_str
+            Send send_str this.settings["end_char"]
             SendLevel 0
         }
         ; else {
@@ -336,7 +336,7 @@ Class SuggestionsGui
         }
 
         this.matches.Modify(1, "+Select +Focus")
-        this.matches.ModifyCol()
+        this.matches.ModifyCol(1, "AutoSize")
         this.matches.ModifyCol(2, "AutoHdr")
         this.matches.Opt("+Redraw")
     }
@@ -383,10 +383,8 @@ Class TrieNode
     Insert(word, pair:="", id_key:="is_word") {
         current := this.root
 
-        prefix := ""
         Loop Parse, word {
             char := A_LoopField
-            prefix := prefix . char
             if not current.Has(char) {
                 current[char] := Map()
             }
