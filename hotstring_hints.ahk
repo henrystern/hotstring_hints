@@ -3,7 +3,6 @@ CoordMode "Caret"
 
 ; todos
 ; read multi line hotstrings maybe a hover tooltip to see entire output
-; order hints by length/score
 
 If (A_ScriptFullPath = A_LineFile) {
     ; Objects
@@ -99,7 +98,7 @@ Class SuggestionsGui
         }
 
         ; State
-        this.search_stack := Map("", this.word_list.root)
+        this.search_stack := Array("", this.word_list.root) ; array isn't as nice as map but keeps oldest strings at the front
     }
 
     MakeGui() {
@@ -166,7 +165,9 @@ Class SuggestionsGui
         word := matches.GetText(row, 2)
         hotstring := matches.GetText(row, 1)
         send_str := ""
-        for prefix, _ in this.search_stack {
+        index := 1
+        while index <= this.search_stack.Length {
+            prefix := this.search_stack[index]
             prefix_length := StrLen(prefix)
             if not prefix {
                 continue
@@ -180,6 +181,7 @@ Class SuggestionsGui
                 send_str := SubStr(word, prefix_length + 1)
                 break
             }
+            index += 2
         }
         this.window.Hide()
         if send_str {
@@ -220,30 +222,33 @@ Class SuggestionsGui
         }
         this.window.Hide()
         this.matches.Delete()
-        this.search_stack := Map("", this.word_list.root)
+        this.search_stack := Array("", this.word_list.root)
         gathered_input.Start()
         return
     }
 
     CharUpdateInput(hook, params*) {
         key := params[1]
-        if key = Chr(0x1B) { ; Chr(0x1B) = "Esc", Chr(0x9) = "Tab"
+        if key = Chr(0x1B) or GetKeyState("Capslock", "P") { ; Chr(0x1B) = "Esc", Capslock is for compatibility with https://github.com/henrystern/extend_layer
             this.ResetWord("End_Key")
             return
         }
 
-        old_search_stack := this.search_stack.Clone() ; optimizations?
         ; Update the items in the stack with the new character. Deletes items with no more matching branches.
-        for prefix, node in old_search_stack {
-            this.search_stack.Delete(prefix)
-            new_prefix := prefix . key
-            if node.Has(key) {
-                this.search_stack[new_prefix] := node[key]
+        index := 1
+        while index <= this.search_stack.Length {
+            if this.search_stack[index + 1].Has(key) {
+                this.search_stack[index] := this.search_stack[index] . key
+                this.search_stack[index + 1] := this.search_stack[index+1][key]
+                index += 2
+            }
+            else {
+                this.search_stack.RemoveAt(index, 2)
             }
         }
 
         if key = " " or key = "`n" or key = Chr(0x9) { ; Chr(0x9) = "Tab"
-            this.search_stack[""] := this.word_list.root
+            this.search_stack.Push("", this.word_list.root)
         }
 
         this.UpdateSuggestions()
@@ -257,17 +262,16 @@ Class SuggestionsGui
                 return
             }
 
-            old_search_stack := this.search_stack.Clone()
             ; removes the last character from each string in the search stack and resets the node
-            for prefix, node in old_search_stack {
-                this.search_stack.Delete(prefix) 
+            index := 1
+            while index <= this.search_stack.Length {
+                prefix := this.search_stack[index]
                 if StrLen(prefix) > 1 {
                     new_prefix := SubStr(prefix, 1, -1)
-                    this.search_stack[new_prefix] := this.word_list.FindNode(new_prefix)
+                    this.search_stack[index] := new_prefix
+                    this.search_stack[index + 1] := this.word_list.FindNode(new_prefix)
                 }
-                else {
-                    this.search_stack[""] := this.word_list.root
-                }
+                index += 2
             }
             this.UpdateSuggestions()
         }
@@ -287,8 +291,13 @@ Class SuggestionsGui
         hotstring_matches := []
         word_matches := []
 
-        for prefix, node in this.search_stack {
-            if prefix = "" or StrLen(prefix) < this.settings["min_show_length"] {
+        index := 1
+        while index <= this.search_stack.Length {
+            prefix := this.search_stack[index]
+            node := this.search_stack[index + 1]
+            index += 2
+
+            if StrLen(prefix) < this.settings["min_show_length"] {
                 continue
             }
 
@@ -403,10 +412,10 @@ Class TrieNode
         match_list := Array()
         if root.Has(match_key) {
             if match_key = "is_hotstring" {
-                match_list.Push(Array(word, root[match_key]))
+                match_list.InsertAt(1, Array(word, root[match_key]))
             }
             else {
-                match_list.Push(Array(root[match_key], word))
+                match_list.InsertAt(1, Array(root[match_key], word))
             }
         }
         return match_list
@@ -422,10 +431,10 @@ Class TrieNode
             for char, child in node {
                 if char = match_key {
                     if match_key = "is_hotstring" {
-                        match_list.Push(Array(string, child))
+                        match_list.InsertAt(1, Array(string, child))
                     }
                     else {
-                        match_list.Push(Array(child, string))
+                        match_list.InsertAt(1, Array(child, string))
                     }
                 }
                 else if child is Map {
