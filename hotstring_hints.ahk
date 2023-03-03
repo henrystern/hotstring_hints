@@ -1,9 +1,6 @@
 ﻿#Requires AutoHotkey v2.0-a
 CoordMode "Caret"
 
-; todos
-; read multi line hotstrings maybe a hover tooltip to see entire output
-
 If (A_ScriptFullPath = A_LineFile) {
     ; Objects
     completion_menu := SuggestionsGui()
@@ -179,13 +176,45 @@ Class SuggestionsGui
         if load_trigger {
             this.loaded_triggers := True
         }
+
+        ; complexity is for handling continuation sections
+        continuation := Map("is_active", False
+                        ,"is_possible", False
+                        ,"word", ""
+                        ,"trigger", "")
+
         Loop read, hotstring_file {
-            first_two := SubStr(A_LoopReadLine, 1, 2)
-            if first_two = "::" { ; could expand to include other hotstring styles with minor adjustments
-                this.LoadHotstring(A_LoopReadLine, load_word, load_trigger)
+            if continuation["is_active"] {
+                if Trim(A_LoopReadLine) = ")" {
+                    this.LoadHotstring(continuation["word"], continuation["trigger"], load_word, load_trigger)
+                    continuation["is_active"] := False
+                    continuation["is_possible"] := False
+                }
+                else {
+                    continuation["word"] := continuation["word"] = "" ? A_LoopReadLine : continuation["word"] . "`n" . A_LoopReadLine
+                }
+
+            }
+            else if SubStr(A_LoopReadLine, 1, 2) = "::" { ; could expand to include other hotstring styles with minor adjustments
+                split := StrSplit(A_LoopReadLine, "::")
+                trigger := split[2]
+                word := split[3]
+                this.LoadHotstring(word, trigger, load_word, load_trigger)
+                continuation["is_possible"] := True
+                continuation["word"] := word
+                continuation["trigger"] := trigger
+            }
+            else if continuation["is_possible"] and Trim(A_LoopReadLine) = "(" {
+                if load_word {
+                    this.word_list.Delete(continuation["word"], "is_word")
+                }
+                if load_trigger {
+                    this.word_list.Delete(continuation["trigger"], "is_hotstring")
+                }
+                continuation["is_active"] := True
             }
             else {
-                continue
+                continuation["is_possible"] := False
             }
         }
     }
@@ -196,10 +225,7 @@ Class SuggestionsGui
         }
     }
 
-    LoadHotstring(hstring, load_word, load_trigger) {
-        split := StrSplit(hstring, "::")
-        trigger := split[2]
-        word := split[3]
+    LoadHotstring(word, trigger, load_word, load_trigger) {
         if StrLen(word) >= this.settings["min_suggestion_length"] {
             if load_word {
                 this.word_list.Insert(word, trigger, "is_word")
@@ -373,13 +399,13 @@ Class SuggestionsGui
         this.matches.Opt("-Redraw")
         this.matches.Delete()
         for match in hotstring_matches {
-            if this.matches.GetCount() > this.settings["max_rows"] { ; big optimization but could improve selection rather than hotstrings always getting priority
+            if this.matches.GetCount() >= this.settings["max_rows"] { ; big optimization but could improve selection rather than hotstrings always getting priority
                 break
             }
             this.matches.Add(, match[1], match[2])
         }
         for match in word_matches {
-            if this.matches.GetCount() > this.settings["max_rows"] {
+            if this.matches.GetCount() >= this.settings["max_rows"] {
                 break
             }
             this.matches.Add(, match[1], match[2])
@@ -442,6 +468,16 @@ Class TrieNode
         }
 
         current[id_key] := pair
+    }
+
+    Delete(prefix, id_key) {
+        ; could optimize to remove obsolete branches but this is easier to implement
+        node := this.FindNode(prefix)
+        if node is Map and node.Has(id_key) {
+            node.Delete(id_key)
+            return True
+        }
+        return False
     }
 
     FindNode(prefix) {
