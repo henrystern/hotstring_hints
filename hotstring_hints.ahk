@@ -36,6 +36,8 @@ If (A_ScriptFullPath = A_LineFile) {
     Hotkey completion_menu.settings["hide_menu"], reset
 
     HotIf
+
+    CustomizeTrayMenu()
 }
 
 FindActivePos() {
@@ -68,6 +70,50 @@ ReadSettings(settings_category) {
         settings[Array[1]] := Trim(Array[2])
     }
     return settings 
+}
+
+CustomizeTrayMenu() {
+    tray := A_TrayMenu
+    tray.Delete
+    tray.Add("Run on Startup", RunOnStartup)
+    tray.Add()
+    tray.Add("Open Script Folder", OpenScriptDir)
+    tray.Add()
+    tray.Add("Reload Script", ReloadScript)
+    tray.Add("Exit", ExitScript )
+
+    ; So that the startup shortcut will work even if the script has moved
+    if FileExist(A_Startup "\hotstring_hints.lnk") {
+        tray.Check("Run on Startup")
+        FileCreateShortcut A_ScriptFullPath, A_Startup "\hotstring_hints.lnk"
+    }
+
+}
+
+RunOnStartup(*) {
+    tray := A_TrayMenu
+    if FileExist(A_Startup "\hotstring_hints.lnk") {
+        tray.Uncheck("Run on Startup")
+        FileDelete A_Startup "\hotstring_hints.lnk"
+    }
+    else {
+        tray.Check("Run on Startup")
+        FileCreateShortcut A_ScriptFullPath, A_Startup "\hotstring_hints.lnk"
+    }
+}
+
+OpenScriptDir(*) {
+    Run A_ScriptDir
+}
+
+ReloadScript(*) {
+    Reload
+    Sleep 1000 ; If successful, the reload will close this instance during the Sleep, so the line below will never be reached.
+    edit_script := MsgBox("The script could not be reloaded. Would you like to open it for editing?", "Reload Error")
+}
+
+ExitScript(*) {
+    ExitApp
 }
 
 Class SuggestionsGui
