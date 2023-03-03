@@ -135,6 +135,9 @@ Class SuggestionsGui
             load_words := hotstring_files[index + 1]
             load_triggers := hotstring_files[index + 2]
             this.LoadHotstringFile(path, load_words, load_triggers)
+            if this.settings["run_files"] {
+                Run path
+            }
             index += 3
         }
 
