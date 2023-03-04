@@ -170,13 +170,6 @@ Class SuggestionsGui
     }
 
     LoadHotstringFile(hotstring_file, load_word, load_trigger) {
-        if load_word { ; saves trying to match if there are none loaded
-            this.loaded_words := True
-        }
-        if load_trigger {
-            this.loaded_triggers := True
-        }
-
         ; complexity is for handling continuation sections
         continuation := Map("is_active", False
                         ,"is_possible", False
@@ -378,12 +371,8 @@ Class SuggestionsGui
                 continue
             }
 
-            if this.loaded_triggers {
-                hotstring_matches.Push(this.FindMatches(prefix, node, "is_hotstring", this.settings["exact_match_hotstring"])*)
-            }
-            if this.loaded_words {
-                word_matches.Push(this.FindMatches(prefix, node, "is_word", this.settings["exact_match_word"])*)
-            }
+            hotstring_matches.Push(this.FindMatches(prefix, node, "is_hotstring", this.settings["exact_match_hotstring"])*)
+            word_matches.Push(this.FindMatches(prefix, node, "is_word", this.settings["exact_match_word"])*)
         }
 
         this.AddMatchControls(hotstring_matches, word_matches)
