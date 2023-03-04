@@ -2,7 +2,9 @@
 
 Hotstrings can only save you time if you remember to use them. 
 
-This script will tell you if you are typing out an assigned hotkey and will remind you of its trigger. 
+This script will tell you if you are typing out an assigned hotkey and will remind you of its trigger.
+
+![demonstration](./demo.gif)
 
 It is also a fully featured autocompletion menu with customizable appearance, mappings, and behaviour.
 
@@ -34,7 +36,7 @@ If the GUI is not displaying correctly you may need to adjust caret_offset, x_wi
 
 ## Hotstring Parsing
 
-The script has four principal limitations when it comes to parsing hotstrings:
+The script has a few limitations when it comes to parsing hotstrings:
 * it will only load hotstrings with the "::" prefix (ie. no options)
 * it will only load continuation sections between parentheses (and not actions between braces or, as in V1.1 actions that are returned)
 * it does not ignore inline comments
