@@ -112,6 +112,7 @@ Class SuggestionsGui
     __New() {
         ; settings
         this.settings := ReadSettings("Settings")
+        this.settings["ignored_applications"] := StrSplit(this.settings["ignored_applications"], ",")
 
         this.window := this.MakeGui()
         this.matches := this.MakeLV(this.settings["bg_colour"], this.settings["text_colour"])
@@ -291,6 +292,12 @@ Class SuggestionsGui
     }
 
     CharUpdateInput(hook, params*) {
+        for app in this.settings["ignored_applications"] {
+            if WinActive(app) {
+                return
+            }
+        }
+
         key := params[1]
         if key = Chr(0x1B) or GetKeyState("Capslock", "P") { ; Chr(0x1B) = "Esc", Capslock is for compatibility with https://github.com/henrystern/extend_layer
             this.ResetWord("End_Key")
@@ -319,6 +326,12 @@ Class SuggestionsGui
     }
 
     AltUpdateInput(hook, params*) {
+        for app in this.settings["ignored_applications"] {
+            if WinActive(app) {
+                return
+            }
+        }
+
         key := GetKeyName(Format("vk{:x}sc{:x}", params[1], params[2]))
         if key = "Backspace" {
             if GetKeyState("Control") {
