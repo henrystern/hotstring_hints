@@ -367,7 +367,7 @@ Class SuggestionsGui
             node := this.search_stack[index + 1]
             index += 2
 
-            if StrLen(prefix) < this.settings["min_show_length"] {
+            if prefix = "" or StrLen(prefix) < this.settings["min_show_length"] {
                 continue
             }
 
