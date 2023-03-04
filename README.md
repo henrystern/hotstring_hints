@@ -30,7 +30,7 @@ For hotstring_files two additional settings must be specified alongside the path
 
 This is useful for autocorrections. You may want to be told if you spell a word incorrectly and as such specify load_triggers=1, but you probably do not want to be told how you could spell a word incorrectly and so specify load_words=0.
 
-The GUI is not dpi-aware so you may need to adjust gui_width, scrollbar_width, font_size, and row_height to correct its appearance for your monitor.
+If the GUI is not displaying correctly you may need to adjust caret_offset, x_window_offset, and y_window_offset.
 
 ## Hotstring Parsing
 
