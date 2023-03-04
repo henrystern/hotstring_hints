@@ -425,7 +425,7 @@ Class SuggestionsGui
         }
         else {
             pos := FindActivePos()
-            this.window.Show("x" pos[1] - this.settings["gui_width"] " y" pos[2] - 10 - this.shown_rows * this.settings["row_height"] " NoActivate")
+            this.window.Show("x" pos[1] - this.settings["x_window_offset"] " y" pos[2] - 10 - this.shown_rows * this.settings["y_window_offset"] " NoActivate")
         }
     }
 
