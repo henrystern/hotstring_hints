@@ -32,7 +32,6 @@ If (A_ScriptFullPath = A_LineFile) {
 }
 
 FindActivePos() {
-    num_monitors := MonitorGetCount()
     if WinExist("A") {
         WinGetPos(&X, &Y, &W, &H, "A")
         R := X + W
@@ -143,7 +142,7 @@ Class SuggestionsGui
     }
 
     MakeGui() {
-        window := Gui("+AlwaysOnTop +ToolWindow -Caption -DPIScale", "Completion Menu", this)
+        window := Gui("+AlwaysOnTop +ToolWindow -Caption", "Completion Menu", this)
         window.MarginX := 0
         window.MarginY := 0
         window.SetFont("S" this.settings["font_size"], this.settings["font"])
