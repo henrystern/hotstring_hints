@@ -195,7 +195,7 @@ Class SuggestionsGui
                 }
 
             }
-            else if SubStr(A_LoopReadLine, 1, 2) = "::" { ; could expand to include other hotstring styles with minor adjustments
+            else if SubStr(A_LoopReadLine, 1, 2) = "::" { ; could expand to include other hotstring styles with minor adjustments but matching would be less accurate
                 split := StrSplit(A_LoopReadLine, "::")
                 trigger := split[2]
                 word := split[3]
@@ -241,13 +241,13 @@ Class SuggestionsGui
         hotstring := matches.GetText(row, 1)
         send_str := ""
         index := 1
+        ; find the matching prefix in the search stack and remove that many characters from the input
         while index <= this.search_stack.Length {
             prefix := this.search_stack[index]
             prefix_length := StrLen(prefix)
             if not prefix {
                 continue
             }
-            ; find the matching prefix in the search stack and remove that many characters from the input
             else if SubStr(hotstring, 1, prefix_length) = prefix {
                 send_str := "{Backspace " prefix_length "}" word
                 break
@@ -323,6 +323,7 @@ Class SuggestionsGui
             }
         }
 
+        ; whitespace and enter adds new word to search_stack
         if key = " " or key = "`n" or key = Chr(0x9) { ; Chr(0x9) = "Tab"
             this.search_stack.Push("", this.word_list.root)
         }
@@ -420,7 +421,7 @@ Class SuggestionsGui
     ResizeGui(){
         this.shown_rows := min(this.settings["max_visible_rows"], this.matches.GetCount())
 
-        this.window.Move(,, this.settings["gui_width"] - this.settings["scrollbar_width"], this.shown_rows * this.settings["row_height"]) ; font dependent, width hides scrollbar
+        this.window.Move(,, this.settings["gui_width"] - this.settings["scrollbar_width"], this.shown_rows * this.settings["row_height"])
     }
 
     ShowGui(){
