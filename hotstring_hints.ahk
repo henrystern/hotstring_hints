@@ -7,30 +7,24 @@ If (A_ScriptFullPath = A_LineFile) {
     Global gathered_input := InputHook("C V", "")
 
     ; Bound actions
-    reset := ObjBindMethod(completion_menu, "ResetWord")
-    check_click := ObjBindMethod(completion_menu, "CheckClickLocation")
-    insert_match := ObjBindMethod(completion_menu, "KeyboardInsertMatch")
-    change_focus_down := ObjBindMethod(completion_menu, "ChangeFocus", "Down")
-    change_focus_up := ObjBindMethod(completion_menu, "ChangeFocus", "Up")
-
-    gathered_input.OnChar := ObjBindMethod(completion_menu, "CharUpdateInput")
     gathered_input.NotifyNonText := True
+    gathered_input.OnChar := ObjBindMethod(completion_menu, "CharUpdateInput")
     gathered_input.OnKeyUp := ObjBindMethod(completion_menu, "AltUpdateInput")
-    gathered_input.OnEnd := reset
+    gathered_input.OnEnd := ObjBindMethod(completion_menu, "ResetWord")
     gathered_input.Start()
 
     ; Hotkeys
     HotIf
-    Hotkey "~LButton", reset
-    Hotkey "~MButton", reset
-    Hotkey "~RButton", reset
+    Hotkey "~LButton", key => completion_menu.ResetWord("Mouse")
+    Hotkey "~MButton", key => completion_menu.ResetWord("Mouse")
+    Hotkey "~RButton", key => completion_menu.ResetWord("Mouse")
 
     HotIfWinExist "Completion Menu"
-    Hotkey "~LButton", check_click
-    Hotkey completion_menu.settings["insert_hotkey"], insert_match
-    Hotkey completion_menu.settings["next_item"], change_focus_down
-    Hotkey completion_menu.settings["previous_item"], change_focus_up
-    Hotkey completion_menu.settings["hide_menu"], reset
+    Hotkey "~LButton", key => completion_menu.CheckClickLocation()
+    Hotkey completion_menu.settings["insert_hotkey"], key => completion_menu.KeyboardInsertMatch()
+    Hotkey completion_menu.settings["next_item"], key => completion_menu.ChangeFocus("Down")
+    Hotkey completion_menu.settings["previous_item"], key => completion_menu.ChangeFocus("Up")
+    Hotkey completion_menu.settings["hide_menu"], key => completion_menu.ResetWord("End Key")
 
     HotIf
 
@@ -39,7 +33,7 @@ If (A_ScriptFullPath = A_LineFile) {
 
 FindActivePos() {
     num_monitors := MonitorGetCount()
-    if WinGetID("A") {
+    if WinExist("A") {
         WinGetPos(&X, &Y, &W, &H, "A")
         R := X + W
         B := Y + H
