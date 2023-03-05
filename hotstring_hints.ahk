@@ -245,12 +245,15 @@ Class SuggestionsGui
             }
             index += 2
         }
-        this.window.Hide()
+        this.ResetWord("insert")
         if send_str {
-            SendLevel 1 ; to reset hotstrings in other scripts
+            gathered_input.OnChar := ""
             Send send_str
             Send this.settings["end_char"]
+            SendLevel 1 ; to reset hotstrings in other scripts
+            Send "{Left}{Right}"
             SendLevel 0
+            gathered_input.OnChar := ObjBindMethod(completion_menu, "CharUpdateInput")
         }
         ; else {
             ; could add new hotkey from here. it would trigger whenever you double clicked an empty row with -readonly in gui.
@@ -393,6 +396,7 @@ Class SuggestionsGui
 
         this.AddMatchControls(hotstring_matches, word_matches)
         if this.matches.GetCount() {
+            sleep 10 ; to update caret position
             this.ResizeGui()
             this.ShowGui()
         }
