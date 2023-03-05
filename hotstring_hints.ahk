@@ -260,12 +260,22 @@ Class SuggestionsGui
 
     KeyboardInsertMatch(*) {
         focused := ListViewGetContent("Count Focused", this.matches)
+        if not focused {
+            focused := 1
+        }
         this.InsertMatch(this.matches, focused)
         return
     }
 
     ChangeFocus(direction, *) {
         focused := ListViewGetContent("Count Focused", this.matches)
+        if not focused {
+            focused := 1
+        }
+        else {
+            this.matches.Modify(focused, "-Select -Focus -Vis")
+        }
+
         if direction = "Up" {
             new_focused := focused = 1 ? this.matches.GetCount() : focused - 1
         }
@@ -407,7 +417,6 @@ Class SuggestionsGui
             this.matches.Add(, match[1], match[2])
         }
 
-        this.matches.Modify(1, "+Select +Focus")
         this.matches.ModifyCol(1, "AutoSize")
         this.matches.ModifyCol(2, "AutoHdr")
         this.matches.Opt("+Redraw")
