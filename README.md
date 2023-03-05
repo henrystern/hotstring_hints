@@ -24,7 +24,7 @@ The mappings can be changed to any valid AHK hotkey through settings.ini.
 
 To change your settings, first copy example_settings.ini to settings.ini.
 
-To get full use of the script you will want to direct hotstring_files, and word_list_files to the paths of your hotstrings and phrase lists. 
+You will want to direct the settings for hotstring_files, and word_list_files to the paths of your hotstrings and phrase lists. 
 
 For hotstring_files two additional settings must be specified alongside the path:
 * load_words: whether to load the hotstrings expansions, and
@@ -37,6 +37,7 @@ If the GUI is not displaying correctly you may need to adjust caret_offset, x_wi
 ## Hotstring Parsing
 
 The script has a few limitations when it comes to parsing hotstrings:
+* matches are always case sensitive
 * it will only load hotstrings with the "::" prefix (ie. no options)
 * it will only load continuation sections between parentheses (and not actions between braces or, as in V1.1 actions that are returned)
 * it does not ignore inline comments
@@ -51,12 +52,6 @@ For example:
     Return
 ```
 
-Then, if you forget the trigger you can look it up from the description of the action " ;send".
+Then, if you forget the trigger you can look it up from the description of the action " ;send current date".
 
-But be aware, sending the hotstring through the menu will send the comment and not the action.
-
-## Efficiency
-
-The script is fairly resource efficient though it will depend on your hardware and settings (particularly max_rows). 
-
-With the default settings, my i7-4790, and 100wpm typing, the 8000 included hotstrings use up about 20 mb of memory and the script never exceeds 1% cpu load.
+But keep in mind that sending the hotstring through the menu will send the comment and not the action.
