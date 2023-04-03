@@ -24,7 +24,7 @@ If (A_ScriptFullPath = A_LineFile) {
     Hotkey completion_menu.settings["insert_hotkey"], key => completion_menu.KeyboardInsertMatch()
     Hotkey completion_menu.settings["next_item"], key => completion_menu.ChangeFocus("Down")
     Hotkey completion_menu.settings["previous_item"], key => completion_menu.ChangeFocus("Up")
-    Hotkey completion_menu.settings["hide_menu"], key => completion_menu.ResetWord("End Key")
+    Hotkey completion_menu.settings["hide_menu"], key => completion_menu.ResetGui()
 
     HotIf
 
@@ -139,6 +139,12 @@ Class SuggestionsGui
 
         ; State
         this.search_stack := Array("", this.word_list.root) ; array isn't as nice as map but keeps oldest strings at the front
+    }
+
+    ResetGui() {
+        this.window.Destroy()
+        this.window := this.MakeGui()
+        this.matches := this.MakeLV(this.settings["bg_colour"], this.settings["text_colour"])
     }
 
     MakeGui() {
