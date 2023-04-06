@@ -279,7 +279,8 @@ Class SuggestionsGui
     ChangeFocus(direction, *) {
         focused := ListViewGetContent("Count Focused", this.matches)
         if not focused {
-            focused := 1
+            this.matches.Modify(1, "+Select +Focus +Vis")
+            return
         }
         else {
             this.matches.Modify(focused, "-Select -Focus -Vis")
