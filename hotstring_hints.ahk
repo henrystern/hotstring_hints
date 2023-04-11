@@ -4,6 +4,7 @@ CoordMode "Caret"
 If (A_ScriptFullPath = A_LineFile) {
     ; Objects
     completion_menu := SuggestionsGui()
+    add_word_menu := AddWordGui()
     Global gathered_input := InputHook("C V", "")
 
     ; Bound actions
@@ -18,6 +19,7 @@ If (A_ScriptFullPath = A_LineFile) {
     Hotkey "~LButton", key => completion_menu.ResetWord("Mouse")
     Hotkey "~MButton", key => completion_menu.ResetWord("Mouse")
     Hotkey "~RButton", key => completion_menu.ResetWord("Mouse")
+    Hotkey "#h", key => add_word_menu.ShowGui()
 
     HotIfWinExist "Completion Menu"
     Hotkey "~LButton", key => completion_menu.CheckClickLocation()
@@ -214,7 +216,7 @@ Class SuggestionsGui
 
     LoadWord(word) {
         if StrLen(word) >= this.settings["min_suggestion_length"] {
-            this.word_list.Insert(A_LoopReadLine)
+            this.word_list.Insert(word)
         }
     }
 
@@ -464,6 +466,18 @@ Class SuggestionsGui
             this.ResetWord("Click")
         }
     }
+
+    GetFileOptions() {
+        options := StrSplit(this.settings.Get("word_list_files", ""), ",")
+        hotstring_files := StrSplit(this.settings.Get("hotstring_files", ""), ",")
+        index := 1
+        while index < hotstring_files.Length {
+            options.Push(hotstring_files[index])
+            index += 3
+        }
+        return options
+    }
+
 }
 
 Class TrieNode
@@ -543,5 +557,72 @@ Class TrieNode
             }
         }
         return match_list
+    }
+}
+
+Class AddWordGui 
+{
+    __New() {
+        this.file_options := completion_menu.GetFileOptions()
+        this.input_gui := this.MakeGui()
+    }
+
+    MakeGui() {
+        new_gui := Gui(, "Add New Match", this)
+        new_gui.OnEvent("Escape", "HideGui")
+        new_gui.SetFont("S" completion_menu.settings["font_size"], completion_menu.settings["font"])
+        new_gui.Add("Text",,"Input the new hotstring or phrase:")
+        this.input := new_gui.Add("Edit", "w250")
+        this.selected_file := new_gui.Add("DropDownList", "w250", this.file_options)
+        Enter := new_gui.Add("Button", "Default", "Enter")
+        Enter.OnEvent("Click", "SubmitNewWord")
+        Cancel := new_gui.Add("Button", "x+m", "Cancel")
+        Cancel.OnEvent("Click", "HideGui")
+        return new_gui
+    }
+
+    ShowGui() {
+        this.input_gui.Show("w300")
+    }
+
+    HideGui(*) {
+        this.input_gui.Destroy()
+        this.input_gui := this.MakeGui()
+    }
+
+    SubmitNewWord(*) {
+        if StrLower(SubStr(this.selected_file.Text, -3)) == "ahk" {
+            successful := this.AddNewHotstring()
+        }
+        else {
+            successful := this.AddNewWord()
+        }
+        if successful {
+            if this.selected_file.Text {
+                FileAppend "`n" this.input.Text, this.selected_file.Text ; Save the hotstring for later use.i
+            }
+            this.HideGui()
+        }
+        else {
+            msgbox "Couldn't add new word. Make sure hotstrings are entered with correct AHK syntax."
+        }
+    }
+
+    AddNewWord(*) {
+        completion_menu.LoadWord(this.input.Text)
+        return 1
+    }
+
+    AddNewHotstring(*) {
+        if RegExMatch(this.input.Text, "(?P<Label>:.*?:(?P<Abbreviation>.*?))::(?P<Replacement>.*)", &Entered) {
+            if !Entered.Abbreviation or !Entered.Replacement
+                Return 0
+            else
+            {
+                completion_menu.LoadHotstring(Entered.Replacement, Entered.Abbreviation, 1, 1)
+                Hotstring Entered.Label, Entered.Replacement  ; Enable the hotstring now.
+                Return 1
+            }
+        }
     }
 }
