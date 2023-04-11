@@ -19,7 +19,7 @@ If (A_ScriptFullPath = A_LineFile) {
     Hotkey "~LButton", key => completion_menu.ResetWord("Mouse")
     Hotkey "~MButton", key => completion_menu.ResetWord("Mouse")
     Hotkey "~RButton", key => completion_menu.ResetWord("Mouse")
-    Hotkey "#h", key => add_word_menu.ShowGui()
+    Hotkey completion_menu.settings["add_word"], key => add_word_menu.ShowGui()
 
     HotIfWinExist "Completion Menu"
     Hotkey "~LButton", key => completion_menu.CheckClickLocation()

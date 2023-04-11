@@ -17,6 +17,7 @@ The default mappings are:
 * Tab:        Next Selection
 * Shift+Tab:  Previous Selection
 * Ctrl+e:     Hide GUI
+* Win+h:      Add Word or Hotstring
 
 The mappings can be changed to any valid AHK hotkey through settings.ini.
 
