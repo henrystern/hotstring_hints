@@ -582,7 +582,32 @@ Class AddWordGui
     }
 
     ShowGui() {
+        selected_text := this.GetSelectedText()
+        if selected_text {
+            this.input.Text := selected_text
+        }
         this.input_gui.Show("w300")
+        WinWait "Add New Match"
+        Send "{End}"
+    }
+
+    GetSelectedText() {
+        ; from hotstring helper in docs
+        old_contents := A_Clipboard
+        A_Clipboard := ""
+        Send "^c"
+        sleep 50
+        if not A_Clipboard {
+            A_Clipboard := old_contents
+            return
+        }
+        selected_text := StrReplace(A_Clipboard, "``", "````")
+        selected_text := StrReplace(selected_text, "`r`n", "``n")
+        selected_text := StrReplace(selected_text, "`n", "``n")
+        selected_text := StrReplace(selected_text, "`t", "``t")
+        selected_text := StrReplace(selected_text, "`;", "```;")
+        A_Clipboard := old_contents
+        return selected_text
     }
 
     HideGui(*) {
