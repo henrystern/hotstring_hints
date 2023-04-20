@@ -649,7 +649,7 @@ Class AddWordGui
             this.HideGui()
         }
         else {
-            msgbox "Couldn't add new word. Make sure hotstrings are entered with correct AHK syntax."
+            msgbox "Couldn't add new word. Make sure hotstrings are entered with correct AHK syntax eg '::btw::by the way'."
         }
     }
 
