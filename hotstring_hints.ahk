@@ -64,21 +64,28 @@ ReadSettings(settings_category) {
     return settings 
 }
 
+; Escapes special character from raw string
+AddEscapeSequences(string) {
+    string := StrReplace(string, "`n", "``n")
+    string := StrReplace(string, "`t", "``t")
+    string := StrReplace(string, "`b", "``b")
+}
+
 ; Changes escape sequences in the string to the special character itself for sending
 ; Thanks to Kisang Kim
 InvertEscapeSequences(string) {
-    string := StrReplace(string, "````", "``")
-    string := StrReplace(string, "```;", "`;")
-    string := StrReplace(string, "```:", "`:")
-    string := StrReplace(string, "```n", "`n")
-    string := StrReplace(string, "```t", "`t")
-    string := StrReplace(string, "```b", "`b")
-    string := StrReplace(string, "```s", "`s")
-    string := StrReplace(string, "```v", "`v")
-    string := StrReplace(string, "```a", "`a")
-    string := StrReplace(string, "```f", "`f")
+    string := StrReplace(string, "``", "``")
+    string := StrReplace(string, "``;", "`;")
+    string := StrReplace(string, "``:", "`:")
+    string := StrReplace(string, "``n", "`n")
+    string := StrReplace(string, "``t", "`t")
+    string := StrReplace(string, "``b", "`b")
+    string := StrReplace(string, "``s", "`s")
+    string := StrReplace(string, "``v", "`v")
+    string := StrReplace(string, "``a", "`a")
+    string := StrReplace(string, "``f", "`f")
     string := StrReplace(string, "```"", "`"")
-    string := StrReplace(string, "```'", "`'")
+    string := StrReplace(string, "``'", "`'")
     Return string
 }
 
@@ -644,7 +651,7 @@ Class AddWordGui
         }
         if successful {
             if this.selected_file.Text {
-                FileAppend "`n" this.input.Text, this.selected_file.Text ; Save the hotstring for later use.i
+                FileAppend "`n" this.input.Text, this.selected_file.Text ; Save the hotstring for later use.
             }
             this.HideGui()
         }
