@@ -64,6 +64,24 @@ ReadSettings(settings_category) {
     return settings 
 }
 
+; Changes escape sequences in the string to the special character itself for sending
+; Thanks to Kisang Kim
+InvertEscapeSequences(string) {
+    string := StrReplace(string, "````", "``")
+    string := StrReplace(string, "```;", "`;")
+    string := StrReplace(string, "```:", "`:")
+    string := StrReplace(string, "```n", "`n")
+    string := StrReplace(string, "```t", "`t")
+    string := StrReplace(string, "```b", "`b")
+    string := StrReplace(string, "```s", "`s")
+    string := StrReplace(string, "```v", "`v")
+    string := StrReplace(string, "```a", "`a")
+    string := StrReplace(string, "```f", "`f")
+    string := StrReplace(string, "```"", "`"")
+    string := StrReplace(string, "```'", "`'")
+    Return string
+}
+
 CustomizeTrayMenu() {
     tray := A_TrayMenu
     tray.Delete
@@ -256,7 +274,7 @@ Class SuggestionsGui
         this.ResetWord("insert")
         if send_str {
             gathered_input.OnChar := ""
-            Send send_str
+            Send InvertEscapeSequences(send_str)
             Send this.settings["end_char"]
             SendLevel 1 ; to reset hotstrings in other scripts
             Send "{Left}{Right}"
@@ -405,6 +423,7 @@ Class SuggestionsGui
 
         this.AddMatchControls(hotstring_matches, word_matches)
         if this.matches.GetCount() {
+            this.matches.Modify(1, "+Select +Focus +Vis")
             sleep 10 ; to update caret position
             this.ResizeGui()
             this.ShowGui()
@@ -606,6 +625,7 @@ Class AddWordGui
         selected_text := StrReplace(selected_text, "`n", "``n")
         selected_text := StrReplace(selected_text, "`t", "``t")
         selected_text := StrReplace(selected_text, "`;", "```;")
+        selected_text := RegExReplace(selected_text, "\r\n|\r|\n", "``r")
         A_Clipboard := old_contents
         return selected_text
     }
