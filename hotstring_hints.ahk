@@ -71,7 +71,6 @@ AddEscapeSequences(string) {
     string := StrReplace(string, "`n", "``n")
     string := StrReplace(string, "`t", "``t")
     string := StrReplace(string, "`;", "```;")
-    string := RegExReplace(string, "\r\n|\r|\n", "``n")
     return string
 }
 
@@ -498,6 +497,7 @@ Class SuggestionsGui
         }
     }
 
+    ; returns list of word list and hotstring files for the insertion menu
     GetFileOptions() {
         options := StrSplit(this.settings.Get("word_list_files", ""), ",")
         hotstring_files := StrSplit(this.settings.Get("hotstring_files", ""), ",")
@@ -639,38 +639,23 @@ Class AddWordGui
     }
 
     SubmitNewWord(*) {
-        if StrLower(SubStr(this.selected_file.Text, -3)) == "ahk" {
-            successful := this.AddNewHotstring()
+        is_hotstring := RegExMatch(this.input.Text, "(?P<Label>:.*?:(?P<Abbreviation>.*?))::(?P<Replacement>.*)", &Entered)
+        if is_hotstring and (Entered.Abbreviation and Entered.Replacement) {
+            completion_menu.LoadHotstring(Entered.Replacement, Entered.Abbreviation, 1, 1)
+            Hotstring Entered.Label, Entered.Replacement
         }
-        else {
-            successful := this.AddNewWord()
-        }
-        if successful {
-            if this.selected_file.Text {
-                FileAppend "`n" this.input.Text, this.selected_file.Text ; Save the hotstring for later use.
-            }
-            this.HideGui()
-        }
-        else {
+        else if StrLower(SubStr(this.selected_file.Text, -3)) == "ahk" {
             msgbox "Couldn't add new word. Make sure hotstrings are entered with correct AHK syntax eg '::btw::by the way'."
+            return
         }
+        else {
+            completion_menu.LoadWord(this.input.Text)
+        }
+
+        if this.selected_file.Text {
+            FileAppend "`n" this.input.Text, this.selected_file.Text
+        }
+        this.HideGui()
     }
 
-    AddNewWord(*) {
-        completion_menu.LoadWord(this.input.Text)
-        return 1
-    }
-
-    AddNewHotstring(*) {
-        if RegExMatch(this.input.Text, "(?P<Label>:.*?:(?P<Abbreviation>.*?))::(?P<Replacement>.*)", &Entered) {
-            if !Entered.Abbreviation or !Entered.Replacement
-                Return 0
-            else
-            {
-                completion_menu.LoadHotstring(Entered.Replacement, Entered.Abbreviation, 1, 1)
-                Hotstring Entered.Label, Entered.Replacement  ; Enable the hotstring now.
-                Return 1
-            }
-        }
-    }
 }
