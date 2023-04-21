@@ -66,18 +66,23 @@ ReadSettings(settings_category) {
 
 ; Escapes special character from raw string
 AddEscapeSequences(string) {
+    string := StrReplace(string, "``", "````")
+    string := StrReplace(string, "`r`n", "``n")
     string := StrReplace(string, "`n", "``n")
     string := StrReplace(string, "`t", "``t")
-    string := StrReplace(string, "`b", "``b")
+    string := StrReplace(string, "`;", "```;")
+    string := RegExReplace(string, "\r\n|\r|\n", "``n")
+    return string
 }
 
 ; Changes escape sequences in the string to the special character itself for sending
 ; Thanks to Kisang Kim
 InvertEscapeSequences(string) {
-    string := StrReplace(string, "``", "``")
-    string := StrReplace(string, "``;", "`;")
-    string := StrReplace(string, "``:", "`:")
+    string := StrReplace(string, "````", "``")
+    string := StrReplace(string, "```;", "`;")
+    string := StrReplace(string, "```:", "`:")
     string := StrReplace(string, "``n", "`n")
+    string := StrReplace(string, "``r", "`n")
     string := StrReplace(string, "``t", "`t")
     string := StrReplace(string, "``b", "`b")
     string := StrReplace(string, "``s", "`s")
@@ -85,7 +90,7 @@ InvertEscapeSequences(string) {
     string := StrReplace(string, "``a", "`a")
     string := StrReplace(string, "``f", "`f")
     string := StrReplace(string, "```"", "`"")
-    string := StrReplace(string, "``'", "`'")
+    string := StrReplace(string, "```'", "`'")
     Return string
 }
 
@@ -621,18 +626,9 @@ Class AddWordGui
         ; from hotstring helper in docs
         old_contents := A_Clipboard
         A_Clipboard := ""
-        Send "^c"
-        sleep 50
-        if not A_Clipboard {
-            A_Clipboard := old_contents
-            return
-        }
-        selected_text := StrReplace(A_Clipboard, "``", "````")
-        selected_text := StrReplace(selected_text, "`r`n", "``n")
-        selected_text := StrReplace(selected_text, "`n", "``n")
-        selected_text := StrReplace(selected_text, "`t", "``t")
-        selected_text := StrReplace(selected_text, "`;", "```;")
-        selected_text := RegExReplace(selected_text, "\r\n|\r|\n", "``r")
+        Send "^{Ins}"
+        Sleep 50
+        selected_text := AddEscapeSequences(A_Clipboard)
         A_Clipboard := old_contents
         return selected_text
     }
