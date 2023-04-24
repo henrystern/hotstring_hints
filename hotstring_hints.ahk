@@ -20,6 +20,7 @@ If (A_ScriptFullPath = A_LineFile) {
     Hotkey "~MButton", key => completion_menu.ResetWord("Mouse")
     Hotkey "~RButton", key => completion_menu.ResetWord("Mouse")
     Hotkey completion_menu.settings["add_word"], key => add_word_menu.ShowGui()
+    Hotkey "#F", key => completion_menu.diagnose()
 
     HotIfWinExist "Completion Menu"
     Hotkey "~LButton", key => completion_menu.CheckClickLocation()
@@ -516,6 +517,12 @@ Class SuggestionsGui
             index += 3
         }
         return options
+    }
+
+    diagnose() {
+        this.window.GetPos(&X, &Y, &Width, &Height)
+        exists := WinExist("Completion Menu") != 0
+        msgbox "Window Shown: " exists "`n" "Visible Control: " this.matches.Visible "`n" "Matches: " this.matches.GetCount() "`n" "Gui Position: X: " X ", Y: " Y ", Width: " Width ", Height: " Height
     }
 
 }
