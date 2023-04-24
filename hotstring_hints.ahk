@@ -210,11 +210,11 @@ Class SuggestionsGui
         Loop read, hotstring_file {
             if continuation["is_active"] {
                 trimmed_line := StrLower(Trim(A_LoopReadLine))
-                if trimmed_line = "(" and not continuation["word"] {
+                if not continuation["word"] {
+                    if trimmed_line != "(" {
+                        continuation["is_active"] := False
+                    }
                     continue
-                }
-                else if (trimmed_line = "{" and not continuation["word"]) or trimmed_line = "return" {
-                    continuation["is_active"] := False
                 }
                 else if trimmed_line = ")" {
                     this.LoadHotstring(continuation["options"], continuation["word"], continuation["trigger"], load_word, load_trigger)
