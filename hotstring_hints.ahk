@@ -201,61 +201,71 @@ Class SuggestionsGui
     }
 
     LoadHotstringFile(hotstring_file, load_word, load_trigger) {
-        ; complexity is for handling continuation sections
+        ; complexity is for handling continuation sections and hotstring options
         continuation := Map("is_active", False
-                        ,"is_possible", False
                         ,"word", ""
-                        ,"trigger", "")
+                        ,"trigger", ""
+                        ,"options", "")
 
         Loop read, hotstring_file {
             if continuation["is_active"] {
-                if Trim(A_LoopReadLine) = ")" {
-                    this.LoadHotstring(continuation["word"], continuation["trigger"], load_word, load_trigger)
+                trimmed_line := StrLower(Trim(A_LoopReadLine))
+                if trimmed_line = "(" and not continuation["word"] {
+                    continue
+                }
+                else if (trimmed_line = "{" and not continuation["word"]) or trimmed_line = "return" {
                     continuation["is_active"] := False
-                    continuation["is_possible"] := False
+                }
+                else if trimmed_line = ")" {
+                    this.LoadHotstring(continuation["options"], continuation["word"], continuation["trigger"], load_word, load_trigger)
+                    continuation["is_active"] := False
                 }
                 else {
                     continuation["word"] := continuation["word"] = "" ? A_LoopReadLine : continuation["word"] . "`n" . A_LoopReadLine
                 }
+                continue
+            }
 
+            is_hotstring := RegExMatch(A_LoopReadLine, ":(?P<Options>.*?):(?P<Abbreviation>.*?)::(?P<Replacement>.*)", &hotstring_part)
+            if not is_hotstring or not hotstring_part.Abbreviation {
+                continue
             }
-            else if SubStr(A_LoopReadLine, 1, 2) = "::" { ; could expand to include other hotstring styles with minor adjustments but matching would be less accurate
-                split := StrSplit(A_LoopReadLine, "::")
-                trigger := split[2]
-                word := split[3]
-                this.LoadHotstring(word, trigger, load_word, load_trigger)
-                continuation["is_possible"] := True
-                continuation["word"] := word
-                continuation["trigger"] := trigger
-            }
-            else if continuation["is_possible"] and Trim(A_LoopReadLine) = "(" {
-                if load_word {
-                    this.word_list.Delete(continuation["word"], "is_word")
-                }
-                if load_trigger {
-                    this.word_list.Delete(continuation["trigger"], "is_hotstring")
-                }
+            if not hotstring_part.Replacement {
                 continuation["is_active"] := True
+                continuation["word"] := ""
+                continuation["trigger"] := hotstring_part.Abbreviation
+                continuation["options"] := hotstring_part.Options
+                continue
             }
-            else {
-                continuation["is_possible"] := False
-            }
+            this.LoadHotstring(hotstring_part.Options, hotstring_part.Replacement, hotstring_part.Abbreviation, load_word, load_trigger)
         }
     }
 
     LoadWord(word) {
         if StrLen(word) >= this.settings["min_suggestion_length"] {
             this.word_list.Insert(word)
+            this.word_list.Insert(StrUpper(SubStr(word, 1, 1)) . SubStr(word, 2))
         }
     }
 
-    LoadHotstring(word, trigger, load_word, load_trigger) {
-        if StrLen(word) >= this.settings["min_suggestion_length"] {
-            if load_word {
-                this.word_list.Insert(word, trigger, "is_word")
+    LoadHotstring(options, word, trigger, load_word, load_trigger) {
+        if StrLen(word) < this.settings["min_suggestion_length"] or options ~= "i)\A(\?|X)\z" {
+            return
+        }
+        if not InStr(options, "C") {
+            upper_word := StrUpper(SubStr(word, 1, 1)) . SubStr(word, 2)
+            upper_trigger := StrUpper(SubStr(trigger, 1, 1)) . SubStr(trigger, 2)
+        }
+        if load_word {
+            this.word_list.Insert(word, trigger, "is_word")
+            if upper_word {
+                this.word_list.Insert(upper_word, upper_trigger, "is_word")
             }
-            if load_trigger {
-                this.word_list.Insert(trigger, word, "is_hotstring")
+        }
+        if load_trigger {
+            this.word_list.Insert(trigger, word, "is_hotstring")
+            if upper_trigger {
+                this.word_list.Insert(upper_trigger, upper_word, "is_word")
             }
         }
     }
