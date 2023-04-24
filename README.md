@@ -38,8 +38,6 @@ If the GUI is not displaying correctly you may need to adjust caret_offset, x_wi
 ## Hotstring Parsing
 
 The script has a few limitations when it comes to parsing hotstrings:
-* matches are always case sensitive
-* it will only load hotstrings with the "::" prefix (ie. no options)
 * it will only load continuation sections between parentheses (and not actions between braces or, as in V1.1 actions that are returned)
 * it does not ignore inline comments
 * it does not ignore hotstrings inside multi-line comments
