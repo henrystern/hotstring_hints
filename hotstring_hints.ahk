@@ -252,20 +252,21 @@ Class SuggestionsGui
         if StrLen(word) < this.settings["min_suggestion_length"] or options ~= "i)\A(\?|X)\z" {
             return
         }
-        if not InStr(options, "C") {
+        case_sensitive := InStr(options, "C") ? True : False
+        if not case_sensitive {
             upper_word := StrUpper(SubStr(word, 1, 1)) . SubStr(word, 2)
             upper_trigger := StrUpper(SubStr(trigger, 1, 1)) . SubStr(trigger, 2)
         }
         if load_word {
             this.word_list.Insert(word, trigger, "is_word")
-            if upper_word {
+            if not case_sensitive {
                 this.word_list.Insert(upper_word, upper_trigger, "is_word")
             }
         }
         if load_trigger {
             this.word_list.Insert(trigger, word, "is_hotstring")
-            if upper_trigger {
-                this.word_list.Insert(upper_trigger, upper_word, "is_word")
+            if not case_sensitive {
+                this.word_list.Insert(upper_trigger, upper_word, "is_hotstring")
             }
         }
     }
