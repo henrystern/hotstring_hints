@@ -648,9 +648,9 @@ Class AddWordGui
     }
 
     SubmitNewWord(*) {
-        is_hotstring := RegExMatch(this.input.Text, "(?P<Label>:.*?:(?P<Abbreviation>.*?))::(?P<Replacement>.*)", &Entered)
+        is_hotstring := RegExMatch(this.input.Text, "(?P<Label>:(?P<Options>.*?):(?P<Abbreviation>.*?))::(?P<Replacement>.*)", &Entered)
         if is_hotstring and (Entered.Abbreviation and Entered.Replacement) {
-            completion_menu.LoadHotstring(Entered.Replacement, Entered.Abbreviation, 1, 1)
+            completion_menu.LoadHotstring(Entered.Options, Entered.Replacement, Entered.Abbreviation, 1, 1)
             Hotstring Entered.Label, Entered.Replacement
         }
         else if StrLower(SubStr(this.selected_file.Text, -3)) == "ahk" {
