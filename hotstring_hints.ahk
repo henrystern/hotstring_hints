@@ -210,10 +210,8 @@ Class SuggestionsGui
         Loop read, hotstring_file {
             if continuation["is_active"] {
                 trimmed_line := StrLower(Trim(A_LoopReadLine))
-                if not continuation["word"] {
-                    if trimmed_line != "(" {
-                        continuation["is_active"] := False
-                    }
+                if not continuation["word"] and trimmed_line != "(" {
+                    continuation["is_active"] := False
                     continue
                 }
                 else if trimmed_line = ")" {
@@ -221,7 +219,7 @@ Class SuggestionsGui
                     continuation["is_active"] := False
                 }
                 else {
-                    continuation["word"] := continuation["word"] = "" ? A_LoopReadLine : continuation["word"] . "`n" . A_LoopReadLine
+                    continuation["word"] := continuation["word"] = "`n(" ? A_LoopReadLine : continuation["word"] . "`n" . A_LoopReadLine
                 }
                 continue
             }
@@ -252,20 +250,21 @@ Class SuggestionsGui
         if StrLen(word) < this.settings["min_suggestion_length"] or options ~= "i)\A(\?|X)\z" {
             return
         }
-        if not InStr(options, "C") {
+        case_sensitive := InStr(options, "C") ? True : False
+        if not case_sensitive {
             upper_word := StrUpper(SubStr(word, 1, 1)) . SubStr(word, 2)
             upper_trigger := StrUpper(SubStr(trigger, 1, 1)) . SubStr(trigger, 2)
         }
         if load_word {
             this.word_list.Insert(word, trigger, "is_word")
-            if upper_word {
+            if not case_sensitive {
                 this.word_list.Insert(upper_word, upper_trigger, "is_word")
             }
         }
         if load_trigger {
             this.word_list.Insert(trigger, word, "is_hotstring")
-            if upper_trigger {
-                this.word_list.Insert(upper_trigger, upper_word, "is_word")
+            if not case_sensitive {
+                this.word_list.Insert(upper_trigger, upper_word, "is_hotstring")
             }
         }
     }
