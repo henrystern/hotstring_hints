@@ -143,7 +143,13 @@ Class SuggestionsGui
     __New() {
         ; settings
         this.settings := ReadSettings("Settings")
-        this.settings["ignored_applications"] := StrSplit(this.settings["ignored_applications"], ",")
+        this.settings["filtered_applications"] := StrSplit(this.settings["filtered_applications"], ",")
+        if this.settings["filter_type"] == "whitelist" {
+          this.ShouldShowMenu := this.IsFilteredApp
+        }
+        else {
+          this.ShouldShowMenu := this.IsntFilteredApp
+        }
 
         this.window := this.MakeGui()
         this.matches := this.MakeLV(this.settings["bg_colour"], this.settings["text_colour"])
@@ -193,6 +199,19 @@ Class SuggestionsGui
         matches.OnEvent("ItemEdit", "ModifyHotstring")
         this.window.Show("Hide") ; makes gui resizable to correct number of rows on first suggestion
         return matches
+    }
+
+    IsFilteredApp() {
+        for app in this.settings["filtered_applications"] {
+            if WinActive(app) {
+                return True
+            }
+        }
+        return False
+    }
+
+    IsntFilteredApp() {
+        return not this.IsFilteredApp()
     }
 
     LoadWordFile(word_file) {
@@ -352,10 +371,8 @@ Class SuggestionsGui
     }
 
     CharUpdateInput(hook, params*) {
-        for app in this.settings["ignored_applications"] {
-            if WinActive(app) {
-                return
-            }
+        if not this.ShouldShowMenu() {
+            return
         }
 
         key := params[1]
@@ -386,10 +403,8 @@ Class SuggestionsGui
     }
 
     AltUpdateInput(hook, params*) {
-        for app in this.settings["ignored_applications"] {
-            if WinActive(app) {
-                return
-            }
+        if not this.ShouldShowMenu() {
+            return
         }
 
         key := GetKeyName(Format("vk{:x}sc{:x}", params[1], params[2]))
